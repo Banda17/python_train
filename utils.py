@@ -59,25 +59,28 @@ def get_sheet_data(client, sheet_id):
 
         df = df.rename(columns=column_mapping)
 
-        # Select only needed columns
-        required_columns = ['Serial Number', 'Train Name', 'Date', 'Locomotive Number',
+        # Select only needed columns and filter trains starting with numbers
+        required_columns = ['Serial Number', 'Train Name', 'Locomotive Number',
                           'Location', 'Status', 'JUST TIME', 'WTT TIME']
-
-        # Add Date column from timestamp if needed
-        if 'Date' not in df.columns and 'timestamp' in df.columns:
-            df['Date'] = pd.to_datetime(df['timestamp']).dt.strftime('%Y-%m-%d')
 
         # Filter columns and handle missing ones
         available_columns = [col for col in required_columns if col in df.columns]
         df = df[available_columns]
 
-        # Check if we have all required columns
-        missing_columns = set(required_columns) - set(available_columns)
-        if missing_columns:
-            st.warning(f"Missing columns in sheet: {', '.join(missing_columns)}")
-            # Add missing columns with empty values
-            for col in missing_columns:
-                df[col] = ''
+        # Format time columns to HH:MM
+        def format_time(time_str):
+            try:
+                # Try parsing the time string and format to HH:MM
+                parsed_time = pd.to_datetime(time_str, format='%H:%M').strftime('%H:%M')
+                return parsed_time
+            except:
+                return time_str
+
+        df['JUST TIME'] = df['JUST TIME'].apply(format_time)
+        df['WTT TIME'] = df['WTT TIME'].apply(format_time)
+
+        # Filter trains starting with numbers
+        df = df[df['Train Name'].str.match(r'^\d.*', na=False)]
 
         return df
     except Exception as e:
@@ -107,13 +110,6 @@ def process_dataframe(df):
 
     # Format status for display
     df['Status'] = df['Status'].str.upper()
-
-    # Convert date column if needed
-    if 'Date' in df.columns:
-        try:
-            df['Date'] = pd.to_datetime(df['Date']).dt.strftime('%Y-%m-%d')
-        except:
-            pass
 
     return df
 
