@@ -68,8 +68,7 @@ client = initialize_google_sheets()
 if client:
     # Check if it's time to refresh
     current_time = time.time()
-    if (auto_refresh and 
-        current_time - st.session_state.last_refresh > refresh_interval):
+    if auto_refresh and current_time - st.session_state.last_refresh > refresh_interval:
         st.session_state.last_refresh = current_time
         st.experimental_rerun()
 
@@ -87,30 +86,19 @@ if client:
         # Display last update time
         st.write(f"Last updated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-        # Format status displays with color
-        def format_status(val):
-            if val == 'TER':
-                return f'<span class="status-ter">{val}</span>'
-            elif val == 'HO':
-                return f'<span class="status-ho">{val}</span>'
-            return val
+        # Create a styled dataframe
+        styled_df = df.style.apply(lambda x: [
+            'background-color: #28a745; color: white' if v == 'TER' else
+            'background-color: #dc3545; color: white' if v == 'HO' else
+            'background-color: #28a745; color: white' if v == 'EARLY' else
+            'background-color: #17a2b8; color: white' if v == 'ON TIME' else
+            'background-color: #dc3545; color: white' if v == 'LATE' else
+            '' for v in x
+        ], subset=['Status', 'Running Status'])
 
-        def format_running_status(val):
-            if val == 'EARLY':
-                return f'<span class="status-early">{val}</span>'
-            elif val == 'ON TIME':
-                return f'<span class="status-ontime">{val}</span>'
-            elif val == 'LATE':
-                return f'<span class="status-late">{val}</span>'
-            return val
-
-        # Apply formatting to status columns
-        df['Status'] = df['Status'].apply(format_status)
-        df['Running Status'] = df['Running Status'].apply(format_running_status)
-
-        # Display the data table
+        # Display the styled dataframe
         st.dataframe(
-            df,
+            styled_df,
             use_container_width=True,
             hide_index=True,
             column_config={
@@ -156,11 +144,11 @@ if client:
         with col1:
             st.metric("Total Trains", len(df))
         with col2:
-            st.metric("Early", len(df[df['Running Status'].str.contains('EARLY', na=False)]))
+            st.metric("Early", len(df[df['Running Status'] == 'EARLY']))
         with col3:
-            st.metric("On Time", len(df[df['Running Status'].str.contains('ON TIME', na=False)]))
+            st.metric("On Time", len(df[df['Running Status'] == 'ON TIME']))
         with col4:
-            st.metric("Late", len(df[df['Running Status'].str.contains('LATE', na=False)]))
+            st.metric("Late", len(df[df['Running Status'] == 'LATE']))
     else:
         st.error("Unable to fetch data from Google Sheets")
 else:
