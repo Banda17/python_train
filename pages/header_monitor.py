@@ -2,6 +2,11 @@ import streamlit as st
 import pandas as pd
 from utils import initialize_google_sheets
 import time
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Page configuration
 st.set_page_config(
@@ -32,11 +37,13 @@ if client:
 
     try:
         # Get sheet and all data
+        logger.info("Fetching all data from Google Sheet")
         sheet = client.open_by_key(sheet_id).sheet1
         all_values = sheet.get_all_values()
 
         if len(all_values) > 0:
             # Create DataFrame with all data
+            logger.info(f"Creating DataFrame from {len(all_values)} rows")
             df = pd.DataFrame(all_values)
 
             # Set first row as headers if data exists
@@ -59,9 +66,12 @@ if client:
             # Display last update time
             st.write(f"Last updated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
         else:
+            logger.warning("No data found in the sheet")
             st.error("No data found in the sheet")
 
     except Exception as e:
+        logger.error(f"Error fetching data: {str(e)}")
         st.error(f"Error fetching data: {str(e)}")
 else:
+    logger.error("Failed to initialize Google Sheets connection")
     st.error("Failed to initialize Google Sheets connection")
