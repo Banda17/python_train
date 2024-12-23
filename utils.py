@@ -116,10 +116,21 @@ def get_sheet_data(client, sheet_id):
         # Load WTT times
         wtt_data = load_wtt_times()
 
+        # Extract train numbers and add WTT times
+        def extract_train_number(train_name):
+            try:
+                if not isinstance(train_name, str):
+                    return ''
+                match = re.match(r'^\d+', train_name)
+                return match.group() if match else ''
+            except Exception as e:
+                logger.warning(f"Error extracting train number from {train_name}: {str(e)}")
+                return ''
+
         # Add WTT time and calculate differences
         df['WTT TIME'] = df.apply(
             lambda row: get_wtt_time(
-                re.match(r'^\d+', row['Train Name']).group() if re.match(r'^\d+', str(row['Train Name'])) else '',
+                extract_train_number(row['Train Name']),
                 row['Location'],
                 wtt_data
             ),
@@ -135,6 +146,9 @@ def get_sheet_data(client, sheet_id):
         # Add train running status
         df['Running Status'] = df['Time Difference'].apply(determine_train_status)
 
+        # Filter out rows with empty train numbers or invalid data
+        df = df[df.apply(lambda x: bool(extract_train_number(x['Train Name'])), axis=1)]
+
         return df
     except Exception as e:
         logger.error(f"Failed to fetch sheet data: {str(e)}")
@@ -145,6 +159,10 @@ def format_time(time_str):
     """Format time string to show only HH:MM."""
     try:
         if not isinstance(time_str, str) or not time_str.strip():
+            return ''
+
+        # Skip header row
+        if time_str.lower() == 'time':
             return ''
 
         # Extract time pattern (HH:MM or HH;MM) from the string
@@ -158,8 +176,12 @@ def format_time(time_str):
             return ''
 
         # If no pattern found, try direct parsing
-        parsed_time = pd.to_datetime(time_str, format='%H:%M').strftime('%H:%M')
-        return parsed_time
+        try:
+            parsed_time = pd.to_datetime(time_str, format='%H:%M').strftime('%H:%M')
+            return parsed_time
+        except:
+            return ''
+
     except Exception as e:
         logger.warning(f"Failed to parse time: {time_str}, error: {str(e)}")
         return ''
