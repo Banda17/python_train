@@ -17,41 +17,81 @@
     margin-bottom: 2rem;
 }
 
-/* Status Indicators */
+/* Status Indicators with Animations */
+.status-ter, .status-ho, .status-early, .status-ontime, .status-late {
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.3s ease-in-out;
+    animation: statusPulse 2s infinite;
+    display: inline-block;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+@keyframes statusPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
 .status-ter {
     background-color: #28a745;
     color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
+    animation: terPulse 2s infinite;
 }
 
 .status-ho {
     background-color: #dc3545;
     color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
+    animation: hoPulse 2s infinite;
 }
 
-/* Running Status Colors */
 .status-early {
     background-color: #28a745;
     color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
+    animation: earlyPulse 2s infinite;
 }
 
 .status-ontime {
     background-color: #17a2b8;
     color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
+    animation: ontimePulse 2s infinite;
 }
 
 .status-late {
     background-color: #dc3545;
     color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
+    animation: latePulse 2s infinite;
+}
+
+@keyframes terPulse {
+    0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+}
+
+@keyframes hoPulse {
+    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+
+@keyframes earlyPulse {
+    0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+}
+
+@keyframes ontimePulse {
+    0% { box-shadow: 0 0 0 0 rgba(23, 162, 184, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(23, 162, 184, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(23, 162, 184, 0); }
+}
+
+@keyframes latePulse {
+    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
 }
 
 /* Control Panel Styling */
@@ -61,6 +101,11 @@
     border-radius: 10px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     margin-bottom: 2rem;
+    transition: all 0.3s ease;
+}
+
+.control-panel:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* Data Table Styling */
@@ -69,13 +114,25 @@ div[data-testid="stDataFrame"] {
     border-radius: 10px;
     padding: 1rem;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+div[data-testid="stDataFrame"]:hover {
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
 div[data-testid="stDataFrame"] td {
     font-size: 14px;
+    transition: background-color 0.2s ease;
 }
 
 div[data-testid="stDataFrame"] th {
     background-color: #2c3e50;
     color: white;
+}
+
+/* Hover effects */
+.status-ter:hover, .status-ho:hover, .status-early:hover, .status-ontime:hover, .status-late:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
