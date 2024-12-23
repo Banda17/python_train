@@ -14,7 +14,8 @@ import os
 st.set_page_config(
     page_title="Railway Tracking Dashboard",
     page_icon="🚂",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"  # Better for mobile
 )
 
 # Initialize ML predictor in session state
@@ -50,52 +51,47 @@ if 'last_refresh' not in st.session_state:
 # Control Panel
 st.markdown("<div class='control-panel'>", unsafe_allow_html=True)
 
-# Main controls
-col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+# Mobile-friendly controls layout
+if st.checkbox("Show Controls", value=True):
+    # Refresh controls
+    col1, col2 = st.columns(2)
+    with col1:
+        auto_refresh = st.checkbox("Auto Refresh", value=True)
+        if st.button("Refresh Now", use_container_width=True):
+            st.session_state.last_refresh = time.time()
 
-with col1:
-    auto_refresh = st.checkbox("Enable Auto Refresh", value=True)
-    if st.button("Refresh Data"):
-        st.session_state.last_refresh = time.time()
+    with col2:
+        refresh_interval = st.slider(
+            "Refresh Interval (sec)",
+            min_value=30,
+            max_value=300,
+            value=60
+        )
 
-with col2:
-    refresh_interval = st.slider(
-        "Refresh Interval (seconds)",
-        min_value=30,
-        max_value=300,
-        value=60
-    )
-
-with col3:
+    # Status filters
     status_filter = st.selectbox(
         "Filter by Status",
         ["All", "TER", "HO"]
     )
 
-with col4:
     running_status_filter = st.selectbox(
         "Filter by Running Status",
         ["All", "EARLY", "ON TIME", "LATE"],
-        index=3  # Set default to "LATE" (index 3 in the list)
+        index=3  # Default to "LATE"
     )
 
-# ML Training section
-with st.expander("🤖 ML Model Control", expanded=False):
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Train Model"):
+    # ML Training controls
+    with st.expander("🤖 ML Model Control", expanded=False):
+        if st.button("Train Model", use_container_width=True):
             with st.spinner("Training ML model..."):
                 try:
-                    # Create models directory if it doesn't exist
                     os.makedirs('models', exist_ok=True)
-                    # Train model with current data
                     st.session_state.predictor.train(st.session_state.get('current_data'))
                     st.success("Model trained successfully!")
                 except Exception as e:
                     st.error(f"Error training model: {str(e)}")
 
-    with col2:
-        if st.button("Load Saved Model"):
+        if st.button("Load Saved Model", use_container_width=True):
             with st.spinner("Loading saved model..."):
                 try:
                     st.session_state.predictor.load_model()
@@ -161,16 +157,29 @@ if client:
             .map(style_status, subset=['Status'])\
             .map(style_running_status, subset=['Running Status'])
 
-        # Display the styled dataframe
+        # Display statistics in a mobile-friendly grid
+        st.subheader("📊 Statistics")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total Trains", len(df))
+            st.metric("Early", len(df[df['Running Status'] == 'EARLY']))
+            st.metric("On Time", len(df[df['Running Status'] == 'ON TIME']))
+        with col2:
+            st.metric("Late", len(df[df['Running Status'] == 'LATE']))
+            avg_predicted_delay = df['Predicted Delay'].mean()
+            st.metric("Avg. Predicted Delay", f"{avg_predicted_delay:.1f} min")
+
+        # Data table with mobile-optimized columns
+        st.subheader("🚂 Train Status")
         st.dataframe(
             styled_df,
             use_container_width=True,
             hide_index=True,
             column_config={
                 "Train Name": st.column_config.TextColumn(
-                    "Train Name",
+                    "Train",
                     help="Train number and name",
-                    width="medium"
+                    width="small"
                 ),
                 "Location": st.column_config.TextColumn(
                     "Location",
@@ -183,48 +192,34 @@ if client:
                     width="small"
                 ),
                 "JUST TIME": st.column_config.TextColumn(
-                    "JUST Time",
+                    "Time",
                     help="Actual time",
                     width="small"
                 ),
                 "WTT TIME": st.column_config.TextColumn(
-                    "WTT Time",
+                    "Scheduled",
                     help="Scheduled time",
                     width="small"
                 ),
                 "Time Difference": st.column_config.TextColumn(
-                    "Current Delay (min)",
-                    help="Current difference between JUST and WTT times"
+                    "Delay",
+                    help="Current delay in minutes"
                 ),
                 "Predicted Delay": st.column_config.NumberColumn(
-                    "Predicted Delay (min)",
-                    help="ML-predicted delay in minutes",
+                    "Predicted",
+                    help="ML-predicted delay",
                     format="%d"
                 ),
                 "Running Status": st.column_config.TextColumn(
-                    "Running Status",
-                    help="Early/On Time/Late status",
+                    "Status",
+                    help="Early/On Time/Late",
                     width="small"
                 )
             }
         )
 
-        # Display statistics
-        col1, col2, col3, col4, col5 = st.columns(5)
-        with col1:
-            st.metric("Total Trains", len(df))
-        with col2:
-            st.metric("Early", len(df[df['Running Status'] == 'EARLY']))
-        with col3:
-            st.metric("On Time", len(df[df['Running Status'] == 'ON TIME']))
-        with col4:
-            st.metric("Late", len(df[df['Running Status'] == 'LATE']))
-        with col5:
-            avg_predicted_delay = df['Predicted Delay'].mean()
-            st.metric("Avg. Predicted Delay", f"{avg_predicted_delay:.1f} min")
-
-        # Add map visualization
-        st.markdown("---")
+        # Map visualization
+        st.subheader("🗺️ Train Locations")
         display_train_map(df)
 
     else:
@@ -234,4 +229,7 @@ else:
 
 # Footer
 st.markdown("---")
-st.markdown("Railway Tracking Dashboard © 2024")
+st.markdown(
+    "<p style='text-align: center; font-size: 0.8rem;'>Railway Tracking Dashboard © 2024</p>", 
+    unsafe_allow_html=True
+)

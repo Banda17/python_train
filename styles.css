@@ -6,15 +6,25 @@
     background-attachment: fixed;
 }
 
+/* Responsive header */
 .train-header {
     background-image: url('https://images.unsplash.com/photo-1633966093900-f9c7ac60229d');
     background-size: cover;
     background-position: center;
     color: white;
-    padding: 2rem;
+    padding: 1rem;
     border-radius: 10px;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
+}
+
+.train-header h1 {
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+    margin-bottom: 0.5rem;
+}
+
+.train-header p {
+    font-size: clamp(0.875rem, 2vw, 1rem);
 }
 
 /* Status Indicators with Animations */
@@ -26,6 +36,7 @@
     display: inline-block;
     font-weight: 500;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
 }
 
 @keyframes statusPulse {
@@ -64,75 +75,106 @@
     animation: latePulse 2s infinite;
 }
 
-@keyframes terPulse {
-    0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
-    70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
-}
-
-@keyframes hoPulse {
-    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
-    70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
-}
-
-@keyframes earlyPulse {
-    0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
-    70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
-}
-
-@keyframes ontimePulse {
-    0% { box-shadow: 0 0 0 0 rgba(23, 162, 184, 0.4); }
-    70% { box-shadow: 0 0 0 10px rgba(23, 162, 184, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(23, 162, 184, 0); }
-}
-
-@keyframes latePulse {
-    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
-    70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
-}
-
 /* Control Panel Styling */
 .control-panel {
     background: rgba(255, 255, 255, 0.95);
     padding: 1rem;
     border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    margin-bottom: 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
     transition: all 0.3s ease;
 }
 
 .control-panel:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 /* Data Table Styling */
 div[data-testid="stDataFrame"] {
     background: rgba(255, 255, 255, 0.95);
     border-radius: 10px;
-    padding: 1rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 0.5rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     transition: all 0.3s ease;
-}
-
-div[data-testid="stDataFrame"]:hover {
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 div[data-testid="stDataFrame"] td {
-    font-size: 14px;
-    transition: background-color 0.2s ease;
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
+    white-space: nowrap;
+    padding: 4px 8px;
 }
 
 div[data-testid="stDataFrame"] th {
     background-color: #2c3e50;
     color: white;
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
+    white-space: nowrap;
+    padding: 4px 8px;
 }
 
-/* Hover effects */
-.status-ter:hover, .status-ho:hover, .status-early:hover, .status-ontime:hover, .status-late:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+/* Mobile-friendly metrics */
+div[data-testid="stMetric"] {
+    background: rgba(255, 255, 255, 0.8);
+    padding: 0.5rem;
+    border-radius: 8px;
+    margin: 0.25rem 0;
+}
+
+div[data-testid="stMetric"] label {
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
+}
+
+div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+    font-size: clamp(1.25rem, 3vw, 1.5rem);
+}
+
+/* Responsive map container */
+div.folium-map {
+    width: 100% !important;
+    height: clamp(300px, 50vh, 600px) !important;
+}
+
+/* Mobile-friendly buttons and controls */
+button {
+    width: 100%;
+    margin: 0.25rem 0;
+    padding: 0.5rem !important;
+    font-size: clamp(0.875rem, 2vw, 1rem) !important;
+}
+
+select, .stSelectbox {
+    width: 100%;
+    font-size: clamp(0.875rem, 2vw, 1rem) !important;
+}
+
+/* Responsive expandable sections */
+div[data-testid="stExpander"] {
+    margin: 0.5rem 0;
+}
+
+/* Media queries for different screen sizes */
+@media (max-width: 768px) {
+    .row-widget.stButton {
+        width: 100%;
+    }
+
+    .row-widget.stSelectbox {
+        width: 100%;
+    }
+
+    div[data-testid="stDataFrame"] {
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .train-header {
+        padding: 0.75rem;
+    }
+
+    .control-panel {
+        padding: 0.75rem;
+    }
 }
