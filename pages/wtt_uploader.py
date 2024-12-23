@@ -45,10 +45,13 @@ def validate_wtt_json(data: Dict[str, Any]) -> Tuple[bool, List[str], Dict[str, 
     stats = {
         'total_stations': 0,
         'total_trains': 0,
-        'empty_times': 0,
-        'invalid_times': 0,
+        'empty_times': {'Arr': 0, 'Dep': 0},
+        'invalid_times': {'Arr': 0, 'Dep': 0},
         'station_stats': {},
-        'time_range': {'earliest': '23:59', 'latest': '00:00'}
+        'time_range': {
+            'Arr': {'earliest': '23:59', 'latest': '00:00'},
+            'Dep': {'earliest': '23:59', 'latest': '00:00'}
+        }
     }
 
     try:
@@ -69,67 +72,73 @@ def validate_wtt_json(data: Dict[str, Any]) -> Tuple[bool, List[str], Dict[str, 
             stats['total_stations'] += 1
             stats['station_stats'][station] = {
                 'total_trains': 0,
-                'empty_times': 0,
-                'invalid_times': 0
+                'empty_times': {'Arr': 0, 'Dep': 0},
+                'invalid_times': {'Arr': 0, 'Dep': 0}
             }
 
-            # Check Dep structure
+            # Check if station data is a dictionary
             if not isinstance(station_data, dict):
                 errors.append(f"Invalid structure for station {station}")
                 continue
-            if 'Dep' not in station_data:
-                errors.append(f"Missing 'Dep' key for station {station}")
-                continue
 
-            dep_data = station_data['Dep']
-            if not isinstance(dep_data, dict):
-                errors.append(f"Invalid 'Dep' structure for station {station}")
-                continue
-
-            # Check times structure
-            if 'times' not in dep_data:
-                errors.append(f"Missing 'times' key for station {station}")
-                continue
-
-            times_data = dep_data['times']
-            if not isinstance(times_data, dict):
-                errors.append(f"Invalid 'times' structure for station {station}")
-                continue
-
-            # Validate times
-            for train_no, time in times_data.items():
-                # Validate train number
-                is_valid, msg = validate_train_number(train_no)
-                if not is_valid:
-                    errors.append(f"Station {station}, {msg}")
+            # Validate both Arr and Dep sections
+            for section in ['Arr', 'Dep']:
+                if section not in station_data:
+                    if section == 'Dep':  # Dep is mandatory
+                        errors.append(f"Missing '{section}' key for station {station}")
                     continue
 
-                stats['total_trains'] += 1
-                stats['station_stats'][station]['total_trains'] += 1
-
-                if not time:
-                    stats['empty_times'] += 1
-                    stats['station_stats'][station]['empty_times'] += 1
+                section_data = station_data[section]
+                if not isinstance(section_data, dict):
+                    errors.append(f"Invalid '{section}' structure for station {station}")
                     continue
 
-                # Validate time format
-                is_valid, msg = validate_time_format(time)
-                if not is_valid:
-                    stats['invalid_times'] += 1
-                    stats['station_stats'][station]['invalid_times'] += 1
-                    errors.append(f"Station {station}, Train {train_no}: {msg}")
+                # Check times structure
+                if 'times' not in section_data:
+                    errors.append(f"Missing 'times' key in {section} for station {station}")
                     continue
 
-                # Update time range
-                if time < stats['time_range']['earliest']:
-                    stats['time_range']['earliest'] = time
-                if time > stats['time_range']['latest']:
-                    stats['time_range']['latest'] = time
+                times_data = section_data['times']
+                if not isinstance(times_data, dict):
+                    errors.append(f"Invalid 'times' structure in {section} for station {station}")
+                    continue
 
-        # Add warnings for stations with high empty times
-        for station, station_stat in stats['station_stats'].items():
-            if station_stat['empty_times'] > station_stat['total_trains'] * 0.5:
-                warnings.append(f"Warning: Station {station} has more than 50% empty times")
+                # Validate times
+                for train_no, time in times_data.items():
+                    # Validate train number
+                    is_valid, msg = validate_train_number(train_no)
+                    if not is_valid:
+                        errors.append(f"Station {station}, {section}, {msg}")
+                        continue
+
+                    stats['total_trains'] += 1
+                    stats['station_stats'][station]['total_trains'] += 1
+
+                    if not time:
+                        stats['empty_times'][section] += 1
+                        stats['station_stats'][station]['empty_times'][section] += 1
+                        continue
+
+                    # Validate time format
+                    is_valid, msg = validate_time_format(time)
+                    if not is_valid:
+                        stats['invalid_times'][section] += 1
+                        stats['station_stats'][station]['invalid_times'][section] += 1
+                        errors.append(f"Station {station}, {section}, Train {train_no}: {msg}")
+                        continue
+
+                    # Update time range
+                    if time < stats['time_range'][section]['earliest']:
+                        stats['time_range'][section]['earliest'] = time
+                    if time > stats['time_range'][section]['latest']:
+                        stats['time_range'][section]['latest'] = time
+
+            # Add warnings for stations with high empty times
+            for section in ['Arr', 'Dep']:
+                section_stats = stats['station_stats'][station]['empty_times'][section]
+                total_trains = stats['station_stats'][station]['total_trains']
+                if total_trains > 0 and section_stats > total_trains * 0.5:
+                    warnings.append(f"Warning: Station {station} has more than 50% empty {section} times")
 
         return len(errors) == 0, errors + warnings, stats
 
@@ -153,7 +162,9 @@ with st.expander("📋 Validation Rules", expanded=False):
     st.markdown("""
     ### JSON Structure Rules
     - Root must be a dictionary
-    - Each station must have a 'Dep' key with 'times' dictionary
+    - Each station must have a 'Dep' key (mandatory)
+    - 'Arr' key is optional but follows the same structure if present
+    - Each section must have a 'times' dictionary
 
     ### Station Code Rules
     - Must be 2-5 uppercase letters
@@ -189,20 +200,33 @@ if uploaded_file is not None:
 
             # Display statistics
             st.subheader("📊 File Statistics")
-            col1, col2, col3 = st.columns(3)
+            col1, col2 = st.columns(2)
             with col1:
                 st.metric("Total Stations", stats['total_stations'])
-            with col2:
                 st.metric("Total Trains", stats['total_trains'])
-            with col3:
-                st.metric("Empty Times", stats['empty_times'])
+            with col2:
+                st.write("Empty Times:")
+                st.write(f"- Arrivals: {stats['empty_times']['Arr']}")
+                st.write(f"- Departures: {stats['empty_times']['Dep']}")
 
-            st.write(f"Time Range: {stats['time_range']['earliest']} - {stats['time_range']['latest']}")
+            st.write("Time Ranges:")
+            st.write(f"- Arrivals: {stats['time_range']['Arr']['earliest']} - {stats['time_range']['Arr']['latest']}")
+            st.write(f"- Departures: {stats['time_range']['Dep']['earliest']} - {stats['time_range']['Dep']['latest']}")
 
             # Station-wise statistics
             st.subheader("📈 Station Statistics")
-            station_df = pd.DataFrame.from_dict(stats['station_stats'], orient='index')
-            st.dataframe(station_df)
+            station_data = []
+            for station, stat in stats['station_stats'].items():
+                station_data.append({
+                    'Station': station,
+                    'Total Trains': stat['total_trains'],
+                    'Empty Arrivals': stat['empty_times']['Arr'],
+                    'Empty Departures': stat['empty_times']['Dep'],
+                    'Invalid Arrivals': stat['invalid_times']['Arr'],
+                    'Invalid Departures': stat['invalid_times']['Dep']
+                })
+            station_df = pd.DataFrame(station_data)
+            st.dataframe(station_df.set_index('Station'))
 
             # Enable save button only if validation passes
             if st.button("Save WTT Data", type="primary"):
@@ -243,6 +267,12 @@ with st.expander("📝 Sample JSON Structure", expanded=False):
     st.code("""
 {
   "GDR": {
+    "Arr": {
+      "times": {
+        "12345": "09:15",
+        "67890": "14:30"
+      }
+    },
     "Dep": {
       "times": {
         "12345": "09:30",
@@ -251,6 +281,12 @@ with st.expander("📝 Sample JSON Structure", expanded=False):
     }
   },
   "MBL": {
+    "Arr": {
+      "times": {
+        "12345": "10:00",
+        "67890": "15:15"
+      }
+    },
     "Dep": {
       "times": {
         "12345": "10:15",
