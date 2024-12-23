@@ -5,6 +5,7 @@ from utils import (
     get_sheet_data,
     apply_filters
 )
+from utils.map_utils import display_train_map
 import time
 
 # Page configuration
@@ -64,7 +65,6 @@ st.markdown("</div>", unsafe_allow_html=True)
 # Initialize Google Sheets client
 client = initialize_google_sheets()
 
-# Main content area
 if client:
     # Check if it's time to refresh
     current_time = time.time()
@@ -149,6 +149,11 @@ if client:
             st.metric("On Time", len(df[df['Running Status'] == 'ON TIME']))
         with col4:
             st.metric("Late", len(df[df['Running Status'] == 'LATE']))
+
+        # Add map visualization
+        st.markdown("---")
+        display_train_map(df)
+
     else:
         st.error("Unable to fetch data from Google Sheets")
 else:
