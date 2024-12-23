@@ -1,0 +1,48 @@
+/* Railway-inspired custom styles */
+.stApp {
+    background-image: linear-gradient(rgba(255,255,255,0.95), rgba(255,255,255,0.95)),
+        url('https://images.unsplash.com/photo-1529581887337-bdb71d4c228a');
+    background-size: cover;
+    background-attachment: fixed;
+}
+
+.train-header {
+    background-image: url('https://images.unsplash.com/photo-1633966093900-f9c7ac60229d');
+    background-size: cover;
+    background-position: center;
+    color: white;
+    padding: 2rem;
+    border-radius: 10px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    margin-bottom: 2rem;
+}
+
+.status-ter {
+    background-color: #28a745;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.status-ho {
+    background-color: #dc3545;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+div[data-testid="stDataFrame"] {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 10px;
+    padding: 1rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+div[data-testid="stDataFrame"] td {
+    font-size: 14px;
+}
+
+div[data-testid="stDataFrame"] th {
+    background-color: #2c3e50;
+    color: white;
+}
