@@ -190,14 +190,22 @@ if client:
             train_df,
             x='Train',
             y='Average Delay',
-            size='Max Delay',
+            size=train_df['Max Delay'].apply(lambda x: abs(x) + 5),  # Convert to absolute value and add minimum size
             color='Average Delay',
             title='Train Delay Analysis',
             labels={
                 'Train': 'Train Number',
                 'Average Delay': 'Average Delay (minutes)',
                 'Max Delay': 'Maximum Delay (minutes)'
-            }
+            },
+            color_continuous_scale='RdYlGn_r'  # Red for high delays, green for low delays
+        )
+
+        # Update layout for better readability
+        fig.update_layout(
+            xaxis_tickangle=-45,
+            showlegend=True,
+            height=500
         )
         st.plotly_chart(fig, use_container_width=True)
 
