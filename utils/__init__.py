@@ -14,6 +14,7 @@ from .core import (
     calculate_time_difference
 )
 from .map_utils import display_train_map
+from .ml_predictor import TrainDelayPredictor
 
 __all__ = [
     'initialize_google_sheets',
@@ -24,5 +25,6 @@ __all__ = [
     'determine_train_status',
     'format_time',
     'calculate_time_difference',
-    'display_train_map'
+    'display_train_map',
+    'TrainDelayPredictor'
 ]

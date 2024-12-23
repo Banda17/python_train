@@ -3,10 +3,12 @@ import pandas as pd
 from utils import (
     initialize_google_sheets,
     get_sheet_data,
-    apply_filters
+    apply_filters,
+    TrainDelayPredictor
 )
 from utils.map_utils import display_train_map
 import time
+import os
 
 # Page configuration
 st.set_page_config(
@@ -14,6 +16,10 @@ st.set_page_config(
     page_icon="🚂",
     layout="wide"
 )
+
+# Initialize ML predictor in session state
+if 'predictor' not in st.session_state:
+    st.session_state.predictor = TrainDelayPredictor()
 
 # Initialize color scheme in session state
 if 'color_scheme' not in st.session_state:
@@ -33,7 +39,7 @@ with open("styles.css") as f:
 st.markdown("""
     <div class='train-header'>
         <h1>Railway Tracking Dashboard</h1>
-        <p>Real-time train monitoring system</p>
+        <p>Real-time train monitoring system with ML-powered delay predictions</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -73,39 +79,29 @@ with col4:
         index=3  # Set default to "LATE" (index 3 in the list)
     )
 
-# Color customization section
-st.markdown("### Customize Status Colors")
-color_cols = st.columns(5)
+# ML Training section
+with st.expander("🤖 ML Model Control", expanded=False):
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Train Model"):
+            with st.spinner("Training ML model..."):
+                try:
+                    # Create models directory if it doesn't exist
+                    os.makedirs('models', exist_ok=True)
+                    # Train model with current data
+                    st.session_state.predictor.train(st.session_state.get('current_data'))
+                    st.success("Model trained successfully!")
+                except Exception as e:
+                    st.error(f"Error training model: {str(e)}")
 
-with color_cols[0]:
-    st.session_state.color_scheme['TER'] = st.color_picker(
-        "Terminated Status Color",
-        st.session_state.color_scheme['TER']
-    )
-
-with color_cols[1]:
-    st.session_state.color_scheme['HO'] = st.color_picker(
-        "Hand Over Status Color",
-        st.session_state.color_scheme['HO']
-    )
-
-with color_cols[2]:
-    st.session_state.color_scheme['EARLY'] = st.color_picker(
-        "Early Status Color",
-        st.session_state.color_scheme['EARLY']
-    )
-
-with color_cols[3]:
-    st.session_state.color_scheme['ON_TIME'] = st.color_picker(
-        "On Time Status Color",
-        st.session_state.color_scheme['ON_TIME']
-    )
-
-with color_cols[4]:
-    st.session_state.color_scheme['LATE'] = st.color_picker(
-        "Late Status Color",
-        st.session_state.color_scheme['LATE']
-    )
+    with col2:
+        if st.button("Load Saved Model"):
+            with st.spinner("Loading saved model..."):
+                try:
+                    st.session_state.predictor.load_model()
+                    st.success("Model loaded successfully!")
+                except Exception as e:
+                    st.error(f"Error loading model: {str(e)}")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -117,13 +113,24 @@ if client:
     current_time = time.time()
     if auto_refresh and current_time - st.session_state.last_refresh > refresh_interval:
         st.session_state.last_refresh = current_time
-        st.rerun()  # Updated from experimental_rerun to rerun
+        st.rerun()
 
     # Default spreadsheet ID
     sheet_id = "1OuiQ3FEoNAtH10NllgLusxACjn2NU0yZUcHh68hLoI4"
     df = get_sheet_data(client, sheet_id)
 
     if df is not None:
+        # Store current data in session state for ML training
+        st.session_state.current_data = df.copy()
+
+        # Get delay predictions
+        try:
+            predictions = st.session_state.predictor.predict(df)
+            df['Predicted Delay'] = predictions
+        except Exception as e:
+            st.warning(f"Could not generate predictions: {str(e)}")
+            df['Predicted Delay'] = 0
+
         # Apply filters
         if status_filter != "All":
             df = df[df['Status'] == status_filter]
@@ -151,8 +158,8 @@ if client:
             return ''
 
         styled_df = df.style\
-            .applymap(style_status, subset=['Status'])\
-            .applymap(style_running_status, subset=['Running Status'])
+            .map(style_status, subset=['Status'])\
+            .map(style_running_status, subset=['Running Status'])
 
         # Display the styled dataframe
         st.dataframe(
@@ -186,8 +193,13 @@ if client:
                     width="small"
                 ),
                 "Time Difference": st.column_config.TextColumn(
-                    "Delay (min)",
-                    help="Difference between JUST and WTT times"
+                    "Current Delay (min)",
+                    help="Current difference between JUST and WTT times"
+                ),
+                "Predicted Delay": st.column_config.NumberColumn(
+                    "Predicted Delay (min)",
+                    help="ML-predicted delay in minutes",
+                    format="%d"
                 ),
                 "Running Status": st.column_config.TextColumn(
                     "Running Status",
@@ -198,7 +210,7 @@ if client:
         )
 
         # Display statistics
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
             st.metric("Total Trains", len(df))
         with col2:
@@ -207,6 +219,9 @@ if client:
             st.metric("On Time", len(df[df['Running Status'] == 'ON TIME']))
         with col4:
             st.metric("Late", len(df[df['Running Status'] == 'LATE']))
+        with col5:
+            avg_predicted_delay = df['Predicted Delay'].mean()
+            st.metric("Avg. Predicted Delay", f"{avg_predicted_delay:.1f} min")
 
         # Add map visualization
         st.markdown("---")
