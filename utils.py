@@ -5,6 +5,7 @@ from google.oauth2 import service_account
 import gspread
 import json
 import logging
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -78,18 +79,7 @@ def get_sheet_data(client, sheet_id):
         available_columns = [col for col in required_columns if col in df.columns]
         df = df[available_columns]
 
-        # Format time columns to HH:MM
-        def format_time(time_str):
-            try:
-                if not isinstance(time_str, str) or not time_str.strip():
-                    return ''
-                # Try parsing the time string and format to HH:MM
-                parsed_time = pd.to_datetime(time_str, format='%H:%M').strftime('%H:%M')
-                return parsed_time
-            except Exception as e:
-                logger.warning(f"Failed to parse time: {time_str}, error: {str(e)}")
-                return time_str
-
+        # Format time columns
         df['JUST TIME'] = df['JUST TIME'].apply(format_time)
         df['WTT TIME'] = df['WTT TIME'].apply(format_time)
 
@@ -102,6 +92,29 @@ def get_sheet_data(client, sheet_id):
         logger.error(f"Failed to fetch sheet data: {str(e)}")
         st.error(f"Failed to fetch sheet data: {str(e)}")
         return None
+
+def format_time(time_str):
+    """Format time string to show only HH:MM."""
+    try:
+        if not isinstance(time_str, str) or not time_str.strip():
+            return ''
+
+        # Extract time pattern (HH:MM or HH;MM) from the string
+        time_pattern = re.search(r'(\d{1,2})[;:](\d{2})', time_str)
+        if time_pattern:
+            hours, minutes = time_pattern.groups()
+            # Ensure hours are in 24-hour format
+            hours = int(hours)
+            if hours < 24:
+                return f"{hours:02d}:{minutes}"
+            return ''
+
+        # If no pattern found, try direct parsing
+        parsed_time = pd.to_datetime(time_str, format='%H:%M').strftime('%H:%M')
+        return parsed_time
+    except Exception as e:
+        logger.warning(f"Failed to parse time: {time_str}, error: {str(e)}")
+        return ''
 
 def calculate_time_difference(just_time, wtt_time):
     """Calculate time difference in minutes between JUST and WTT times."""
