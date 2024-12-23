@@ -17,6 +17,7 @@
     margin-bottom: 2rem;
 }
 
+/* Status Indicators */
 .status-ter {
     background-color: #28a745;
     color: white;
@@ -31,6 +32,38 @@
     border-radius: 4px;
 }
 
+/* Running Status Colors */
+.status-early {
+    background-color: #28a745;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.status-ontime {
+    background-color: #17a2b8;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.status-late {
+    background-color: #dc3545;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+/* Control Panel Styling */
+.control-panel {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 1rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+}
+
+/* Data Table Styling */
 div[data-testid="stDataFrame"] {
     background: rgba(255, 255, 255, 0.95);
     border-radius: 10px;

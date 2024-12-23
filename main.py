@@ -30,33 +30,36 @@ st.markdown("""
 if 'last_refresh' not in st.session_state:
     st.session_state.last_refresh = time.time()
 
-# Sidebar
-st.sidebar.title("Dashboard Controls")
+# Control Panel
+st.markdown("<div class='control-panel'>", unsafe_allow_html=True)
+col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 
-# Auto-refresh settings
-auto_refresh = st.sidebar.checkbox("Enable Auto Refresh", value=True)
-refresh_interval = st.sidebar.slider(
-    "Refresh Interval (seconds)",
-    min_value=30,
-    max_value=300,
-    value=60
-)
+with col1:
+    auto_refresh = st.checkbox("Enable Auto Refresh", value=True)
+    if st.button("Refresh Data"):
+        st.session_state.last_refresh = time.time()
 
-# Status filter
-status_filter = st.sidebar.selectbox(
-    "Filter by Status",
-    ["All", "TER", "HO"]
-)
+with col2:
+    refresh_interval = st.slider(
+        "Refresh Interval (seconds)",
+        min_value=30,
+        max_value=300,
+        value=60
+    )
 
-# Running status filter
-running_status_filter = st.sidebar.selectbox(
-    "Filter by Running Status",
-    ["All", "EARLY", "ON TIME", "LATE"]
-)
+with col3:
+    status_filter = st.selectbox(
+        "Filter by Status",
+        ["All", "TER", "HO"]
+    )
 
-# Manual refresh button
-if st.sidebar.button("Refresh Data"):
-    st.session_state.last_refresh = time.time()
+with col4:
+    running_status_filter = st.selectbox(
+        "Filter by Running Status",
+        ["All", "EARLY", "ON TIME", "LATE"]
+    )
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 # Initialize Google Sheets client
 client = initialize_google_sheets()
@@ -70,7 +73,7 @@ if client:
         st.session_state.last_refresh = current_time
         st.experimental_rerun()
 
-    # Default spreadsheet ID from the service account
+    # Default spreadsheet ID
     sheet_id = "1OuiQ3FEoNAtH10NllgLusxACjn2NU0yZUcHh68hLoI4"
     df = get_sheet_data(client, sheet_id)
 
@@ -83,6 +86,27 @@ if client:
 
         # Display last update time
         st.write(f"Last updated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+        # Format status displays with color
+        def format_status(val):
+            if val == 'TER':
+                return f'<span class="status-ter">{val}</span>'
+            elif val == 'HO':
+                return f'<span class="status-ho">{val}</span>'
+            return val
+
+        def format_running_status(val):
+            if val == 'EARLY':
+                return f'<span class="status-early">{val}</span>'
+            elif val == 'ON TIME':
+                return f'<span class="status-ontime">{val}</span>'
+            elif val == 'LATE':
+                return f'<span class="status-late">{val}</span>'
+            return val
+
+        # Apply formatting to status columns
+        df['Status'] = df['Status'].apply(format_status)
+        df['Running Status'] = df['Running Status'].apply(format_running_status)
 
         # Display the data table
         st.dataframe(
@@ -132,11 +156,11 @@ if client:
         with col1:
             st.metric("Total Trains", len(df))
         with col2:
-            st.metric("Early", len(df[df['Running Status'] == 'EARLY']))
+            st.metric("Early", len(df[df['Running Status'].str.contains('EARLY', na=False)]))
         with col3:
-            st.metric("On Time", len(df[df['Running Status'] == 'ON TIME']))
+            st.metric("On Time", len(df[df['Running Status'].str.contains('ON TIME', na=False)]))
         with col4:
-            st.metric("Late", len(df[df['Running Status'] == 'LATE']))
+            st.metric("Late", len(df[df['Running Status'].str.contains('LATE', na=False)]))
     else:
         st.error("Unable to fetch data from Google Sheets")
 else:
