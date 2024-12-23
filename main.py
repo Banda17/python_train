@@ -65,21 +65,21 @@ if client:
         st.session_state.last_refresh = current_time
         st.experimental_rerun()
 
-    # Fetch and process data
-    sheet_id = st.secrets.get("sheet_id", "YOUR_SHEET_ID")
+    # Default spreadsheet ID from the service account
+    sheet_id = "1OuiQ3FEoNAtH10NllgLusxACjn2NU0yZUcHh68hLoI4"
     df = get_sheet_data(client, sheet_id)
-    
+
     if df is not None:
         # Process the dataframe
         df = process_dataframe(df)
-        
+
         if df is not None:
             # Apply filters
             filtered_df = apply_filters(df, status_filter)
-            
+
             # Display last update time
             st.write(f"Last updated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            
+
             # Display the data table
             st.dataframe(
                 filtered_df,
@@ -97,7 +97,7 @@ if client:
                     )
                 }
             )
-            
+
             # Display statistics
             col1, col2, col3 = st.columns(3)
             with col1:

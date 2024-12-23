@@ -8,4 +8,5 @@ dependencies = [
     "gspread>=6.1.4",
     "pandas>=2.2.3",
     "streamlit>=1.41.1",
+    "trafilatura>=2.0.0",
 ]
