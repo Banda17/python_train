@@ -70,7 +70,7 @@ if client:
     current_time = time.time()
     if auto_refresh and current_time - st.session_state.last_refresh > refresh_interval:
         st.session_state.last_refresh = current_time
-        st.experimental_rerun()
+        st.rerun()  # Updated from experimental_rerun to rerun
 
     # Default spreadsheet ID
     sheet_id = "1OuiQ3FEoNAtH10NllgLusxACjn2NU0yZUcHh68hLoI4"
