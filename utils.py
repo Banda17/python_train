@@ -11,11 +11,48 @@ import re
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def load_wtt_times():
+    """Load Working Time Table times from bhanu.json"""
+    try:
+        logger.info("Loading WTT times from bhanu.json")
+        with open('bhanu.json', 'r') as f:
+            wtt_data = json.load(f)
+        return wtt_data
+    except Exception as e:
+        logger.error(f"Error loading WTT times: {str(e)}")
+        return None
+
+def get_wtt_time(train_number, station, wtt_data):
+    """Get WTT time for a specific train and station"""
+    try:
+        if not wtt_data or not station in wtt_data:
+            return ''
+        station_data = wtt_data[station].get('Dep', {}).get('times', {})
+        return station_data.get(str(train_number), '')
+    except Exception as e:
+        logger.warning(f"Error getting WTT time for train {train_number} at {station}: {str(e)}")
+        return ''
+
+def determine_train_status(time_diff):
+    """Determine if train is early, on time, or late"""
+    try:
+        if not time_diff or time_diff == "N/A":
+            return ""
+        diff = int(time_diff.replace("+", ""))
+        if diff < -5:  # More than 5 minutes early
+            return "EARLY"
+        elif diff > 5:  # More than 5 minutes late
+            return "LATE"
+        else:
+            return "ON TIME"
+    except Exception as e:
+        logger.warning(f"Error determining train status: {str(e)}")
+        return ""
+
 def initialize_google_sheets():
     """Initialize Google Sheets connection using service account."""
     try:
         logger.info("Initializing Google Sheets connection...")
-        # Read credentials from JSON file
         with open('nimble-willow-433310-n1-f8d544889cfe.json', 'r') as f:
             credentials_info = json.load(f)
 
@@ -39,15 +76,14 @@ def get_sheet_data(client, sheet_id):
     try:
         logger.info(f"Fetching data from sheet: {sheet_id}")
         sheet = client.open_by_key(sheet_id).sheet1
-        # Get all values as a list of lists
         values = sheet.get_all_values()
 
-        if len(values) < 3:  # Need at least header row and one data row
+        if len(values) < 3:
             logger.warning("Sheet is empty or has insufficient data")
             st.error("Sheet is empty or has insufficient data")
             return None
 
-        # Define column headers based on sheets.ts reference
+        # Define headers for the sheet data
         headers = [
             'timestamp', 'empty_col', 'BD No', 'Sl No', 'Train Name', 
             'LOCO', 'Station', 'Status', 'Time', 'Remarks', 'FOISID', 'uid'
@@ -62,30 +98,42 @@ def get_sheet_data(client, sheet_id):
 
         # Map columns to required format
         column_mapping = {
-            'Sl No': 'Serial Number',
-            'LOCO': 'Locomotive Number',
+            'Train Name': 'Train Name',
             'Station': 'Location',
-            'Time': 'JUST TIME',
-            'Remarks': 'WTT TIME'
+            'Status': 'Status',
+            'Time': 'JUST TIME'
         }
 
         df = df.rename(columns=column_mapping)
 
-        # Select only needed columns and filter trains starting with numbers
-        required_columns = ['Serial Number', 'Train Name', 'Locomotive Number',
-                          'Location', 'Status', 'JUST TIME', 'WTT TIME']
-
-        # Filter columns and handle missing ones
-        available_columns = [col for col in required_columns if col in df.columns]
-        df = df[available_columns]
+        # Select only needed columns
+        required_columns = ['Train Name', 'Location', 'Status', 'JUST TIME']
+        df = df[required_columns]
 
         # Format time columns
         df['JUST TIME'] = df['JUST TIME'].apply(format_time)
-        df['WTT TIME'] = df['WTT TIME'].apply(format_time)
 
-        # Filter trains starting with numbers
-        df = df[df['Train Name'].str.match(r'^\d.*', na=False)]
-        logger.info(f"Processed {len(df)} rows after filtering")
+        # Load WTT times
+        wtt_data = load_wtt_times()
+
+        # Add WTT time and calculate differences
+        df['WTT TIME'] = df.apply(
+            lambda row: get_wtt_time(
+                re.match(r'^\d+', row['Train Name']).group() if re.match(r'^\d+', str(row['Train Name'])) else '',
+                row['Location'],
+                wtt_data
+            ),
+            axis=1
+        )
+
+        # Calculate time differences
+        df['Time Difference'] = df.apply(
+            lambda x: calculate_time_difference(x['JUST TIME'], x['WTT TIME']),
+            axis=1
+        )
+
+        # Add train running status
+        df['Running Status'] = df['Time Difference'].apply(determine_train_status)
 
         return df
     except Exception as e:
@@ -128,28 +176,6 @@ def calculate_time_difference(just_time, wtt_time):
     except Exception as e:
         logger.warning(f"Failed to calculate time difference: {str(e)}")
         return "N/A"
-
-def process_dataframe(df):
-    """Process the dataframe to add calculated columns and format data."""
-    if df is None or df.empty:
-        logger.warning("No data to process in DataFrame")
-        return None
-
-    try:
-        # Calculate time difference
-        df['Time Difference'] = df.apply(
-            lambda x: calculate_time_difference(x['JUST TIME'], x['WTT TIME']),
-            axis=1
-        )
-
-        # Format status for display
-        df['Status'] = df['Status'].str.upper()
-
-        logger.info("DataFrame processed successfully")
-        return df
-    except Exception as e:
-        logger.error(f"Error processing DataFrame: {str(e)}")
-        return None
 
 def apply_filters(df, status_filter):
     """Apply filters to the dataframe."""
