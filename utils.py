@@ -29,17 +29,55 @@ def get_sheet_data(client, sheet_id):
     """Fetch data from Google Sheets."""
     try:
         sheet = client.open_by_key(sheet_id).sheet1
-        data = sheet.get_all_records()
-        df = pd.DataFrame(data)
+        # Get all values as a list of lists
+        values = sheet.get_all_values()
 
-        # Ensure required columns exist
+        if len(values) < 3:  # Need at least header row and one data row
+            st.error("Sheet is empty or has insufficient data")
+            return None
+
+        # Define column headers based on sheets.ts reference
+        headers = [
+            'timestamp', 'empty_col', 'BD No', 'Sl No', 'Train Name', 
+            'LOCO', 'Station', 'Status', 'Time', 'Remarks', 'FOISID', 'uid'
+        ]
+
+        # Start from row 3 (index 2) as per sheets.ts
+        data_rows = values[2:]
+
+        # Create DataFrame with specified headers
+        df = pd.DataFrame(data_rows, columns=headers)
+
+        # Map columns to required format
+        column_mapping = {
+            'Sl No': 'Serial Number',
+            'LOCO': 'Locomotive Number',
+            'Station': 'Location',
+            'Time': 'JUST TIME',
+            'Remarks': 'WTT TIME'
+        }
+
+        df = df.rename(columns=column_mapping)
+
+        # Select only needed columns
         required_columns = ['Serial Number', 'Train Name', 'Date', 'Locomotive Number',
                           'Location', 'Status', 'JUST TIME', 'WTT TIME']
 
-        if not all(col in df.columns for col in required_columns):
-            missing_cols = [col for col in required_columns if col not in df.columns]
-            st.error(f"Missing required columns in sheet: {', '.join(missing_cols)}")
-            return None
+        # Add Date column from timestamp if needed
+        if 'Date' not in df.columns and 'timestamp' in df.columns:
+            df['Date'] = pd.to_datetime(df['timestamp']).dt.strftime('%Y-%m-%d')
+
+        # Filter columns and handle missing ones
+        available_columns = [col for col in required_columns if col in df.columns]
+        df = df[available_columns]
+
+        # Check if we have all required columns
+        missing_columns = set(required_columns) - set(available_columns)
+        if missing_columns:
+            st.warning(f"Missing columns in sheet: {', '.join(missing_columns)}")
+            # Add missing columns with empty values
+            for col in missing_columns:
+                df[col] = ''
 
         return df
     except Exception as e:
