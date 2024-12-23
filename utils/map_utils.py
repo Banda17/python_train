@@ -19,31 +19,35 @@ def create_train_map(df):
     # Create a map centered on the average position of all stations
     center_lat = sum(pos[0] for pos in STATION_COORDINATES.values()) / len(STATION_COORDINATES)
     center_lon = sum(pos[1] for pos in STATION_COORDINATES.values()) / len(STATION_COORDINATES)
-    
+
     m = folium.Map(location=[center_lat, center_lon], zoom_start=8)
-    
+
     # Add station markers
     for station, coords in STATION_COORDINATES.items():
         # Filter trains at this station
         station_trains = df[df['Location'] == station]
-        
+
         if not station_trains.empty:
             # Create popup text with train information
             popup_text = f"<b>{station}</b><br>"
             for _, train in station_trains.iterrows():
+                # Get color from session state based on status
                 status_color = (
-                    'green' if train['Status'] == 'TER' else
-                    'red' if train['Status'] == 'HO' else
+                    st.session_state.color_scheme['TER'] if train['Status'] == 'TER' else
+                    st.session_state.color_scheme['HO'] if train['Status'] == 'HO' else
                     'blue'
                 )
+                # Remove '#' from hex color for HTML
+                status_color = status_color.lstrip('#')
+
                 popup_text += f"""
-                    <div style='color:{status_color}'>
+                    <div style='color:#{status_color}'>
                         {train['Train Name']} - {train['Status']}
                         <br>Time: {train['JUST TIME']}
                         <br>Status: {train['Running Status']}
                     </div><br>
                 """
-            
+
             # Add marker with custom icon based on whether there are trains
             icon_color = 'green' if 'TER' in station_trains['Status'].values else 'red'
             folium.Marker(
@@ -58,7 +62,7 @@ def create_train_map(df):
                 popup=f"<b>{station}</b><br>No trains currently at this station",
                 icon=folium.Icon(color='gray', icon='info-sign'),
             ).add_to(m)
-    
+
     return m
 
 def display_train_map(df):

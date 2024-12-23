@@ -15,6 +15,16 @@ st.set_page_config(
     layout="wide"
 )
 
+# Initialize color scheme in session state
+if 'color_scheme' not in st.session_state:
+    st.session_state.color_scheme = {
+        'TER': '#28a745',
+        'HO': '#dc3545',
+        'EARLY': '#28a745',
+        'ON_TIME': '#17a2b8',
+        'LATE': '#dc3545'
+    }
+
 # Load custom CSS
 with open("styles.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
@@ -33,6 +43,8 @@ if 'last_refresh' not in st.session_state:
 
 # Control Panel
 st.markdown("<div class='control-panel'>", unsafe_allow_html=True)
+
+# Main controls
 col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 
 with col1:
@@ -58,6 +70,40 @@ with col4:
     running_status_filter = st.selectbox(
         "Filter by Running Status",
         ["All", "EARLY", "ON TIME", "LATE"]
+    )
+
+# Color customization section
+st.markdown("### Customize Status Colors")
+color_cols = st.columns(5)
+
+with color_cols[0]:
+    st.session_state.color_scheme['TER'] = st.color_picker(
+        "Terminated Status Color",
+        st.session_state.color_scheme['TER']
+    )
+
+with color_cols[1]:
+    st.session_state.color_scheme['HO'] = st.color_picker(
+        "Hand Over Status Color",
+        st.session_state.color_scheme['HO']
+    )
+
+with color_cols[2]:
+    st.session_state.color_scheme['EARLY'] = st.color_picker(
+        "Early Status Color",
+        st.session_state.color_scheme['EARLY']
+    )
+
+with color_cols[3]:
+    st.session_state.color_scheme['ON_TIME'] = st.color_picker(
+        "On Time Status Color",
+        st.session_state.color_scheme['ON_TIME']
+    )
+
+with color_cols[4]:
+    st.session_state.color_scheme['LATE'] = st.color_picker(
+        "Late Status Color",
+        st.session_state.color_scheme['LATE']
     )
 
 st.markdown("</div>", unsafe_allow_html=True)
@@ -86,15 +132,26 @@ if client:
         # Display last update time
         st.write(f"Last updated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-        # Create a styled dataframe
-        styled_df = df.style.apply(lambda x: [
-            'background-color: #28a745; color: white' if v == 'TER' else
-            'background-color: #dc3545; color: white' if v == 'HO' else
-            'background-color: #28a745; color: white' if v == 'EARLY' else
-            'background-color: #17a2b8; color: white' if v == 'ON TIME' else
-            'background-color: #dc3545; color: white' if v == 'LATE' else
-            '' for v in x
-        ], subset=['Status', 'Running Status'])
+        # Create a styled dataframe using custom colors
+        def style_status(val):
+            if val == 'TER':
+                return f'background-color: {st.session_state.color_scheme["TER"]}; color: white'
+            elif val == 'HO':
+                return f'background-color: {st.session_state.color_scheme["HO"]}; color: white'
+            return ''
+
+        def style_running_status(val):
+            if val == 'EARLY':
+                return f'background-color: {st.session_state.color_scheme["EARLY"]}; color: white'
+            elif val == 'ON TIME':
+                return f'background-color: {st.session_state.color_scheme["ON_TIME"]}; color: white'
+            elif val == 'LATE':
+                return f'background-color: {st.session_state.color_scheme["LATE"]}; color: white'
+            return ''
+
+        styled_df = df.style\
+            .applymap(style_status, subset=['Status'])\
+            .applymap(style_running_status, subset=['Running Status'])
 
         # Display the styled dataframe
         st.dataframe(
