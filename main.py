@@ -69,7 +69,8 @@ with col3:
 with col4:
     running_status_filter = st.selectbox(
         "Filter by Running Status",
-        ["All", "EARLY", "ON TIME", "LATE"]
+        ["All", "EARLY", "ON TIME", "LATE"],
+        index=3  # Set default to "LATE" (index 3 in the list)
     )
 
 # Color customization section
