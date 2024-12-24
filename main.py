@@ -85,6 +85,27 @@ if client:
         # Display last update time
         st.write(f"Last updated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
+        # Status filters
+        status_filter = st.selectbox(
+            "Filter by Status",
+            ["All", "TER", "HO"]
+        )
+
+        running_status_filter = st.selectbox(
+            "Filter by Running Status",
+            ["All", "EARLY", "ON TIME", "LATE"],
+            index=3  # Default to "LATE"
+        )
+
+        # Create a filtered copy of the dataframe
+        filtered_df = df.copy()
+
+        # Apply filters
+        if status_filter != "All":
+            filtered_df = filtered_df[filtered_df['Status'] == status_filter]
+        if running_status_filter != "All":
+            filtered_df = filtered_df[filtered_df['Running Status'] == running_status_filter]
+
         # Create a styled dataframe using custom colors
         def style_status(val):
             if val == 'TER':
@@ -102,7 +123,7 @@ if client:
                 return f'background-color: {st.session_state.color_scheme["LATE"]}; color: white'
             return ''
 
-        styled_df = df.style\
+        styled_df = filtered_df.style\
             .map(style_status, subset=['Status'])\
             .map(style_running_status, subset=['Running Status'])
 
@@ -269,24 +290,6 @@ if client:
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-
-        # Status filters
-        status_filter = st.selectbox(
-            "Filter by Status",
-            ["All", "TER", "HO"]
-        )
-
-        running_status_filter = st.selectbox(
-            "Filter by Running Status",
-            ["All", "EARLY", "ON TIME", "LATE"],
-            index=3  # Default to "LATE"
-        )
-
-        # Apply filters
-        if status_filter != "All":
-            df = df[df['Status'] == status_filter]
-        if running_status_filter != "All":
-            df = df[df['Running Status'] == running_status_filter]
 
         # ML Training controls
         with st.expander("🤖 ML Model Control", expanded=False):
