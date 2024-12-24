@@ -22,6 +22,13 @@ st.set_page_config(
 if 'predictor' not in st.session_state:
     st.session_state.predictor = TrainDelayPredictor()
 
+# Initialize session states
+if 'auto_refresh' not in st.session_state:
+    st.session_state.auto_refresh = True
+
+if 'last_refresh' not in st.session_state:
+    st.session_state.last_refresh = time.time()
+
 # Initialize color scheme in session state
 if 'color_scheme' not in st.session_state:
     st.session_state.color_scheme = {
@@ -44,10 +51,6 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Initialize session state for refresh
-if 'last_refresh' not in st.session_state:
-    st.session_state.last_refresh = time.time()
-
 # Control Panel
 st.markdown("<div class='control-panel'>", unsafe_allow_html=True)
 
@@ -56,7 +59,7 @@ if st.checkbox("Show Controls", value=True):
     # Refresh controls
     col1, col2 = st.columns(2)
     with col1:
-        auto_refresh = st.checkbox("Auto Refresh", value=True)
+        st.session_state.auto_refresh = st.checkbox("Auto Refresh", value=st.session_state.auto_refresh)
         if st.button("Refresh Now", use_container_width=True):
             st.session_state.last_refresh = time.time()
 
@@ -107,7 +110,7 @@ client = initialize_google_sheets()
 if client:
     # Check if it's time to refresh
     current_time = time.time()
-    if auto_refresh and current_time - st.session_state.last_refresh > refresh_interval:
+    if st.session_state.auto_refresh and current_time - st.session_state.last_refresh > refresh_interval:
         st.session_state.last_refresh = current_time
         st.rerun()
 
