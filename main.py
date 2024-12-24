@@ -239,18 +239,32 @@ if client:
         # Display historical performance
         if not train_data.empty:
             st.subheader("📈 Historical Performance")
-            historical_data = df[df['Train Name'] == selected_train]
+            historical_data = df[df['Train Name'] == selected_train].copy()
 
             if not historical_data.empty:
+                # Convert Time Difference to numeric, removing '+' prefix
+                historical_data['Time Difference'] = historical_data['Time Difference'].apply(
+                    lambda x: float(x.replace('+', '')) if x != 'N/A' else 0
+                )
+
+                # Melt the dataframe for plotting
+                plot_data = historical_data.melt(
+                    id_vars=['Location'],
+                    value_vars=['Time Difference', 'Predicted Delay'],
+                    var_name='Metric',
+                    value_name='Delay (minutes)'
+                )
+
                 fig = px.line(
-                    historical_data,
+                    plot_data,
                     x='Location',
-                    y=['Time Difference', 'Predicted Delay'],
+                    y='Delay (minutes)',
+                    color='Metric',
                     title=f"Delay Trend for {selected_train}",
                     labels={
                         'Location': 'Station',
-                        'value': 'Delay (minutes)',
-                        'variable': 'Type'
+                        'Delay (minutes)': 'Delay (minutes)',
+                        'Metric': 'Type'
                     }
                 )
                 st.plotly_chart(fig, use_container_width=True)
