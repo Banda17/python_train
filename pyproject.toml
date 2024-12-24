@@ -14,5 +14,4 @@ dependencies = [
     "streamlit-folium>=0.24.0",
     "streamlit>=1.41.1",
     "trafilatura>=2.0.0",
-    "twilio>=9.4.1",
 ]
