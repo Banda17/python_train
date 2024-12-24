@@ -7,6 +7,7 @@ from utils import (
     TrainDelayPredictor
 )
 from utils.map_utils import display_train_map
+from utils.notifications import NotificationManager
 import time
 import os
 
@@ -22,6 +23,10 @@ st.set_page_config(
 if 'predictor' not in st.session_state:
     st.session_state.predictor = TrainDelayPredictor()
 
+# Initialize notification manager
+if 'notification_manager' not in st.session_state:
+    st.session_state.notification_manager = NotificationManager()
+
 # Initialize color scheme in session state
 if 'color_scheme' not in st.session_state:
     st.session_state.color_scheme = {
@@ -35,6 +40,9 @@ if 'color_scheme' not in st.session_state:
 # Load custom CSS
 with open("styles.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+# Display notifications sidebar
+st.session_state.notification_manager.display_notifications()
 
 # Header
 st.markdown("""
@@ -118,6 +126,9 @@ if client:
     if df is not None:
         # Store current data in session state for ML training
         st.session_state.current_data = df.copy()
+
+        # Check for delays and send notifications
+        st.session_state.notification_manager.check_delays(df)
 
         # Get delay predictions
         try:
