@@ -1,6 +1,8 @@
 import folium
 import streamlit as st
 from streamlit_folium import folium_static
+import numpy as np
+from folium import plugins
 
 # Dictionary of station coordinates (latitude, longitude)
 STATION_COORDINATES = {
@@ -14,13 +16,28 @@ STATION_COORDINATES = {
     'PGU': (22.7400, 88.4700)   # Pragati
 }
 
+def generate_heatmap_data(df):
+    """Generate heatmap data from train locations."""
+    heat_data = []
+    for station, count in df['Location'].value_counts().items():
+        if station in STATION_COORDINATES:
+            # Add coordinates with weight based on number of trains
+            coords = STATION_COORDINATES[station]
+            heat_data.append([coords[0], coords[1], count])
+    return heat_data
+
 def create_train_map(df):
-    """Create a folium map with train locations."""
+    """Create a folium map with train locations and heatmap."""
     # Create a map centered on the average position of all stations
     center_lat = sum(pos[0] for pos in STATION_COORDINATES.values()) / len(STATION_COORDINATES)
     center_lon = sum(pos[1] for pos in STATION_COORDINATES.values()) / len(STATION_COORDINATES)
 
     m = folium.Map(location=[center_lat, center_lon], zoom_start=8)
+
+    # Add heatmap layer
+    heat_data = generate_heatmap_data(df)
+    if heat_data:
+        plugins.HeatMap(heat_data, radius=25).add_to(m)
 
     # Add station markers
     for station, coords in STATION_COORDINATES.items():
@@ -70,6 +87,14 @@ def display_train_map(df):
     try:
         train_map = create_train_map(df)
         st.subheader("Train Location Map")
+        # Add map description
+        st.markdown("""
+        🗺️ **Map Legend:**
+        - 🔴 Red markers: Stations with trains held
+        - 🟢 Green markers: Stations with trains terminated
+        - ⚪ Gray markers: Stations with no trains
+        - 🔥 Heat intensity: Shows concentration of trains
+        """)
         folium_static(train_map)
     except Exception as e:
         st.error(f"Error displaying map: {str(e)}")
