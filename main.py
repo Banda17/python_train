@@ -55,53 +55,7 @@ st.markdown("<div class='control-panel'>", unsafe_allow_html=True)
 if st.button("Refresh Now", use_container_width=True):
     st.session_state.last_refresh = time.time()
 
-# Display statistics in a mobile-friendly grid
-st.subheader("📊 Statistics")
-col1, col2 = st.columns(2)
-with col1:
-    st.metric("Total Trains", len(df) if 'df' in locals() else 0)
-    st.metric("Early", len(df[df['Running Status'] == 'EARLY']) if 'df' in locals() else 0)
-    st.metric("On Time", len(df[df['Running Status'] == 'ON TIME']) if 'df' in locals() else 0)
-with col2:
-    st.metric("Late", len(df[df['Running Status'] == 'LATE']) if 'df' in locals() else 0)
-    if 'df' in locals():
-        avg_predicted_delay = df['Predicted Delay'].mean()
-        st.metric("Avg. Predicted Delay", f"{avg_predicted_delay:.1f} min")
-
-# Status filters
-status_filter = st.selectbox(
-    "Filter by Status",
-    ["All", "TER", "HO"]
-)
-
-running_status_filter = st.selectbox(
-    "Filter by Running Status",
-    ["All", "EARLY", "ON TIME", "LATE"],
-    index=3  # Default to "LATE"
-)
-
-# ML Training controls
-with st.expander("🤖 ML Model Control", expanded=False):
-    if st.button("Train Model", use_container_width=True):
-        with st.spinner("Training ML model..."):
-            try:
-                os.makedirs('models', exist_ok=True)
-                st.session_state.predictor.train(st.session_state.get('current_data'))
-                st.success("Model trained successfully!")
-            except Exception as e:
-                st.error(f"Error training model: {str(e)}")
-
-    if st.button("Load Saved Model", use_container_width=True):
-        with st.spinner("Loading saved model..."):
-            try:
-                st.session_state.predictor.load_model()
-                st.success("Model loaded successfully!")
-            except Exception as e:
-                st.error(f"Error loading model: {str(e)}")
-
-st.markdown("</div>", unsafe_allow_html=True)
-
-# Initialize Google Sheets client
+# Initialize Google Sheets client and get data first
 client = initialize_google_sheets()
 
 if client:
@@ -127,15 +81,8 @@ if client:
             st.warning(f"Could not generate predictions: {str(e)}")
             df['Predicted Delay'] = 0
 
-        # Apply filters
-        if status_filter != "All":
-            df = df[df['Status'] == status_filter]
-        if running_status_filter != "All":
-            df = df[df['Running Status'] == running_status_filter]
-
         # Display last update time
         st.write(f"Last updated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
 
         # Create a styled dataframe using custom colors
         def style_status(val):
@@ -207,6 +154,56 @@ if client:
             }
         )
 
+        # Display statistics in a mobile-friendly grid
+        st.subheader("📊 Statistics")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total Trains", len(df) if 'df' in locals() else 0)
+            st.metric("Early", len(df[df['Running Status'] == 'EARLY']) if 'df' in locals() else 0)
+            st.metric("On Time", len(df[df['Running Status'] == 'ON TIME']) if 'df' in locals() else 0)
+        with col2:
+            st.metric("Late", len(df[df['Running Status'] == 'LATE']) if 'df' in locals() else 0)
+            if 'df' in locals():
+                avg_predicted_delay = df['Predicted Delay'].mean()
+                st.metric("Avg. Predicted Delay", f"{avg_predicted_delay:.1f} min")
+
+        # Status filters
+        status_filter = st.selectbox(
+            "Filter by Status",
+            ["All", "TER", "HO"]
+        )
+
+        running_status_filter = st.selectbox(
+            "Filter by Running Status",
+            ["All", "EARLY", "ON TIME", "LATE"],
+            index=3  # Default to "LATE"
+        )
+
+        # Apply filters
+        if status_filter != "All":
+            df = df[df['Status'] == status_filter]
+        if running_status_filter != "All":
+            df = df[df['Running Status'] == running_status_filter]
+
+        # ML Training controls
+        with st.expander("🤖 ML Model Control", expanded=False):
+            if st.button("Train Model", use_container_width=True):
+                with st.spinner("Training ML model..."):
+                    try:
+                        os.makedirs('models', exist_ok=True)
+                        st.session_state.predictor.train(st.session_state.get('current_data'))
+                        st.success("Model trained successfully!")
+                    except Exception as e:
+                        st.error(f"Error training model: {str(e)}")
+
+            if st.button("Load Saved Model", use_container_width=True):
+                with st.spinner("Loading saved model..."):
+                    try:
+                        st.session_state.predictor.load_model()
+                        st.success("Model loaded successfully!")
+                    except Exception as e:
+                        st.error(f"Error loading model: {str(e)}")
+
         # Map visualization
         st.subheader("🗺️ Train Locations")
         display_train_map(df)
@@ -215,6 +212,8 @@ if client:
         st.error("Unable to fetch data from Google Sheets")
 else:
     st.error("Failed to initialize Google Sheets connection")
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 # Footer
 st.markdown("---")
