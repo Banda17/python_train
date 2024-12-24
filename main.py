@@ -23,9 +23,6 @@ if 'predictor' not in st.session_state:
     st.session_state.predictor = TrainDelayPredictor()
 
 # Initialize session states
-if 'auto_refresh' not in st.session_state:
-    st.session_state.auto_refresh = True
-
 if 'last_refresh' not in st.session_state:
     st.session_state.last_refresh = time.time()
 
@@ -54,53 +51,40 @@ st.markdown("""
 # Control Panel
 st.markdown("<div class='control-panel'>", unsafe_allow_html=True)
 
-# Mobile-friendly controls layout
-if st.checkbox("Show Controls", value=True):
-    # Refresh controls
-    col1, col2 = st.columns(2)
-    with col1:
-        st.session_state.auto_refresh = st.checkbox("Auto Refresh", value=st.session_state.auto_refresh)
-        if st.button("Refresh Now", use_container_width=True):
-            st.session_state.last_refresh = time.time()
+# Simple refresh button
+if st.button("Refresh Now", use_container_width=True):
+    st.session_state.last_refresh = time.time()
 
-    with col2:
-        refresh_interval = st.slider(
-            "Refresh Interval (sec)",
-            min_value=30,
-            max_value=300,
-            value=60
-        )
+# Status filters
+status_filter = st.selectbox(
+    "Filter by Status",
+    ["All", "TER", "HO"]
+)
 
-    # Status filters
-    status_filter = st.selectbox(
-        "Filter by Status",
-        ["All", "TER", "HO"]
-    )
+running_status_filter = st.selectbox(
+    "Filter by Running Status",
+    ["All", "EARLY", "ON TIME", "LATE"],
+    index=3  # Default to "LATE"
+)
 
-    running_status_filter = st.selectbox(
-        "Filter by Running Status",
-        ["All", "EARLY", "ON TIME", "LATE"],
-        index=3  # Default to "LATE"
-    )
+# ML Training controls
+with st.expander("🤖 ML Model Control", expanded=False):
+    if st.button("Train Model", use_container_width=True):
+        with st.spinner("Training ML model..."):
+            try:
+                os.makedirs('models', exist_ok=True)
+                st.session_state.predictor.train(st.session_state.get('current_data'))
+                st.success("Model trained successfully!")
+            except Exception as e:
+                st.error(f"Error training model: {str(e)}")
 
-    # ML Training controls
-    with st.expander("🤖 ML Model Control", expanded=False):
-        if st.button("Train Model", use_container_width=True):
-            with st.spinner("Training ML model..."):
-                try:
-                    os.makedirs('models', exist_ok=True)
-                    st.session_state.predictor.train(st.session_state.get('current_data'))
-                    st.success("Model trained successfully!")
-                except Exception as e:
-                    st.error(f"Error training model: {str(e)}")
-
-        if st.button("Load Saved Model", use_container_width=True):
-            with st.spinner("Loading saved model..."):
-                try:
-                    st.session_state.predictor.load_model()
-                    st.success("Model loaded successfully!")
-                except Exception as e:
-                    st.error(f"Error loading model: {str(e)}")
+    if st.button("Load Saved Model", use_container_width=True):
+        with st.spinner("Loading saved model..."):
+            try:
+                st.session_state.predictor.load_model()
+                st.success("Model loaded successfully!")
+            except Exception as e:
+                st.error(f"Error loading model: {str(e)}")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -108,9 +92,9 @@ st.markdown("</div>", unsafe_allow_html=True)
 client = initialize_google_sheets()
 
 if client:
-    # Check if it's time to refresh
+    # Check if it's time to refresh (every 60 seconds)
     current_time = time.time()
-    if st.session_state.auto_refresh and current_time - st.session_state.last_refresh > refresh_interval:
+    if current_time - st.session_state.last_refresh >= 60:
         st.session_state.last_refresh = current_time
         st.rerun()
 
