@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px # Added import for plotly express
 from utils import (
     initialize_google_sheets,
     get_sheet_data,
@@ -166,6 +167,94 @@ if client:
             if 'df' in locals():
                 avg_predicted_delay = df['Predicted Delay'].mean()
                 st.metric("Avg. Predicted Delay", f"{avg_predicted_delay:.1f} min")
+
+        # Interactive Prediction Section
+        st.subheader("🤖 Delay Predictions")
+
+        # Create two columns for the prediction interface
+        pred_col1, pred_col2 = st.columns(2)
+
+        with pred_col1:
+            selected_train = st.selectbox(
+                "Select Train",
+                options=df['Train Name'].unique(),
+                help="Choose a train to predict delays"
+            )
+
+            selected_station = st.selectbox(
+                "Select Station",
+                options=df['Location'].unique(),
+                help="Choose a station for prediction"
+            )
+
+        with pred_col2:
+            # Get current time and WTT time for the selected train and station
+            train_data = df[
+                (df['Train Name'] == selected_train) & 
+                (df['Location'] == selected_station)
+            ]
+
+            if not train_data.empty:
+                current_delay = train_data['Time Difference'].iloc[0]
+                wtt_time = train_data['WTT TIME'].iloc[0]
+                actual_time = train_data['JUST TIME'].iloc[0]
+
+                st.metric(
+                    "Current Delay",
+                    f"{current_delay} min",
+                    delta=None
+                )
+
+                # Make prediction for this specific train
+                try:
+                    prediction_data = pd.DataFrame({
+                        'Train Name': [selected_train],
+                        'Location': [selected_station],
+                        'WTT TIME': [wtt_time],
+                        'JUST TIME': [actual_time]
+                    })
+
+                    predicted_delay = st.session_state.predictor.predict(prediction_data)[0]
+
+                    st.metric(
+                        "Predicted Delay",
+                        f"{predicted_delay:.0f} min",
+                        delta=f"{predicted_delay - float(current_delay.replace('+', ''))}",
+                        delta_color="inverse"
+                    )
+
+                    # Add prediction insights
+                    if abs(predicted_delay) > 15:
+                        st.warning("⚠️ High delay risk detected!")
+                    elif abs(predicted_delay) > 5:
+                        st.info("ℹ️ Moderate delay expected")
+                    else:
+                        st.success("✅ Train likely to run on time")
+
+                except Exception as e:
+                    st.error(f"Could not generate prediction: {str(e)}")
+            else:
+                st.info("No current data available for selected train and station")
+
+        # Display historical performance
+        if not train_data.empty:
+            st.subheader("📈 Historical Performance")
+            historical_data = df[df['Train Name'] == selected_train]
+
+            if not historical_data.empty:
+                fig = px.line(
+                    historical_data,
+                    x='Location',
+                    y=['Time Difference', 'Predicted Delay'],
+                    title=f"Delay Trend for {selected_train}",
+                    labels={
+                        'Location': 'Station',
+                        'value': 'Delay (minutes)',
+                        'variable': 'Type'
+                    }
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
 
         # Status filters
         status_filter = st.selectbox(
