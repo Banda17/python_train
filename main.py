@@ -55,6 +55,19 @@ st.markdown("<div class='control-panel'>", unsafe_allow_html=True)
 if st.button("Refresh Now", use_container_width=True):
     st.session_state.last_refresh = time.time()
 
+# Display statistics in a mobile-friendly grid
+st.subheader("📊 Statistics")
+col1, col2 = st.columns(2)
+with col1:
+    st.metric("Total Trains", len(df) if 'df' in locals() else 0)
+    st.metric("Early", len(df[df['Running Status'] == 'EARLY']) if 'df' in locals() else 0)
+    st.metric("On Time", len(df[df['Running Status'] == 'ON TIME']) if 'df' in locals() else 0)
+with col2:
+    st.metric("Late", len(df[df['Running Status'] == 'LATE']) if 'df' in locals() else 0)
+    if 'df' in locals():
+        avg_predicted_delay = df['Predicted Delay'].mean()
+        st.metric("Avg. Predicted Delay", f"{avg_predicted_delay:.1f} min")
+
 # Status filters
 status_filter = st.selectbox(
     "Filter by Status",
@@ -123,6 +136,7 @@ if client:
         # Display last update time
         st.write(f"Last updated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
+
         # Create a styled dataframe using custom colors
         def style_status(val):
             if val == 'TER':
@@ -143,18 +157,6 @@ if client:
         styled_df = df.style\
             .map(style_status, subset=['Status'])\
             .map(style_running_status, subset=['Running Status'])
-
-        # Display statistics in a mobile-friendly grid
-        st.subheader("📊 Statistics")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total Trains", len(df))
-            st.metric("Early", len(df[df['Running Status'] == 'EARLY']))
-            st.metric("On Time", len(df[df['Running Status'] == 'ON TIME']))
-        with col2:
-            st.metric("Late", len(df[df['Running Status'] == 'LATE']))
-            avg_predicted_delay = df['Predicted Delay'].mean()
-            st.metric("Avg. Predicted Delay", f"{avg_predicted_delay:.1f} min")
 
         # Data table with mobile-optimized columns
         st.subheader("🚂 Train Status")
