@@ -19,7 +19,7 @@ class TrainDelayPredictor:
         self.station_encoder = LabelEncoder()
         self.train_encoder = LabelEncoder()
         self.is_trained = False
-        
+
     def _extract_time_features(self, time_str: str) -> Dict[str, int]:
         """Extract hour and minute from time string"""
         try:
@@ -31,31 +31,49 @@ class TrainDelayPredictor:
         except:
             return {'hour': -1, 'minute': -1}
 
+    def _process_time_difference(self, value: str) -> float:
+        """Process time difference string to numeric value"""
+        try:
+            if pd.isna(value) or value == 'N/A':
+                return 0.0
+            # Remove '+' prefix if present and convert to float
+            return float(str(value).replace('+', ''))
+        except Exception as e:
+            logger.warning(f"Error processing time difference '{value}': {str(e)}")
+            return 0.0
+
     def _preprocess_data(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
         """Preprocess the data for training/prediction"""
         try:
+            # Create a copy to avoid modifying original dataframe
+            df = df.copy()
+
+            # Handle missing values
+            df['Location'] = df['Location'].fillna('UNKNOWN')
+            df['Train Name'] = df['Train Name'].fillna('UNKNOWN')
+            df['WTT TIME'] = df['WTT TIME'].fillna('00:00')
+            df['JUST TIME'] = df['JUST TIME'].fillna('00:00')
+
             # Encode categorical variables
             df['station_encoded'] = self.station_encoder.fit_transform(df['Location'])
             df['train_encoded'] = self.train_encoder.fit_transform(df['Train Name'])
-            
+
             # Extract time features from WTT and JUST times
             wtt_times = df['WTT TIME'].apply(self._extract_time_features).apply(pd.Series)
             just_times = df['JUST TIME'].apply(self._extract_time_features).apply(pd.Series)
-            
+
             # Create feature matrix
             X = pd.concat([
                 df[['station_encoded', 'train_encoded']],
                 wtt_times.add_prefix('wtt_'),
                 just_times.add_prefix('just_')
             ], axis=1)
-            
-            # Convert time differences to minutes for y
-            y = df['Time Difference'].apply(lambda x: 
-                int(x.replace('+', '')) if x != 'N/A' else 0
-            )
-            
+
+            # Process time differences for y
+            y = df['Time Difference'].apply(self._process_time_difference)
+
             return X.to_numpy(), y.to_numpy()
-            
+
         except Exception as e:
             logger.error(f"Error preprocessing data: {str(e)}")
             raise
@@ -64,28 +82,28 @@ class TrainDelayPredictor:
         """Train the model using historical data"""
         try:
             logger.info("Starting model training...")
-            
+
             # Preprocess data
             X, y = self._preprocess_data(train_data)
-            
+
             # Split data
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y, test_size=0.2, random_state=42
             )
-            
+
             # Train model
             self.model.fit(X_train, y_train)
-            
+
             # Evaluate model
             train_score = self.model.score(X_train, y_train)
             test_score = self.model.score(X_test, y_test)
-            
+
             logger.info(f"Model trained successfully. Train R2: {train_score:.3f}, Test R2: {test_score:.3f}")
             self.is_trained = True
-            
+
             # Save the model
             self.save_model()
-            
+
         except Exception as e:
             logger.error(f"Error training model: {str(e)}")
             raise
@@ -95,13 +113,16 @@ class TrainDelayPredictor:
         try:
             if not self.is_trained:
                 self.load_model()
-                
+
             X, _ = self._preprocess_data(new_data)
             predictions = self.model.predict(X)
-            return predictions.tolist()
-            
+
+            # Round predictions to nearest integer
+            return np.round(predictions).astype(int).tolist()
+
         except Exception as e:
             logger.error(f"Error making predictions: {str(e)}")
+            logger.debug(f"Input data shape: {new_data.shape if hasattr(new_data, 'shape') else 'unknown'}")
             return [0] * len(new_data)
 
     def save_model(self, path: str = 'models/delay_predictor.joblib') -> None:
