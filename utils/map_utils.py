@@ -207,23 +207,59 @@ def display_train_map(df):
         train_map = create_train_map(df)
         if train_map:
             st.subheader("🗺️ Train Location Map")
-            # Add map description with updated legend
-            st.markdown("""
-            **Map Legend:**
-            - 🚉 Gray markers: Railway Stations
-            - 🚂 Train Status Colors:
-                - 🟢 Green: Terminated (TER)
-                - 🔴 Red: Held (HO)
-                - 🟢 Green: Running Early
-                - 🔵 Blue: Running On Time
-                - 🔴 Red: Running Late
 
-            **Tips:**
-            - Click on markers to see detailed information
-            - Trains at the same station are slightly offset for better visibility
-            - Use the layer control ⚙️ to show/hide stations and trains
-            """)
-            st_folium(train_map, height=600)
+            # Create two columns - map and table
+            map_col, table_col = st.columns([2, 1])
+
+            with map_col:
+                # Add map description with updated legend
+                st.markdown("""
+                **Map Legend:**
+                - 🚉 Gray markers: Railway Stations
+                - 🚂 Train Status Colors:
+                    - 🟢 Green: Terminated (TER)
+                    - 🔴 Red: Held (HO)
+                    - 🟢 Green: Running Early
+                    - 🔵 Blue: Running On Time
+                    - 🔴 Red: Running Late
+                """)
+                st_folium(train_map, height=600)
+
+            with table_col:
+                st.markdown("### 🚂 Trains at Stations")
+
+                # Create a DataFrame with relevant columns
+                display_df = df[['Train Name', 'Location', 'Status', 'Running Status', 'Time Difference']].copy()
+
+                # Rename columns for better display
+                display_df.columns = ['Train', 'Station', 'Status', 'Running', 'Delay']
+
+                # Style the dataframe
+                def style_row(row):
+                    color = None
+                    if row['Status'] == 'TER':
+                        color = st.session_state.color_scheme['TER']
+                    elif row['Status'] == 'HO':
+                        color = st.session_state.color_scheme['HO']
+                    elif row['Running'] == 'EARLY':
+                        color = st.session_state.color_scheme['EARLY']
+                    elif row['Running'] == 'ON TIME':
+                        color = st.session_state.color_scheme['ON_TIME']
+                    elif row['Running'] == 'LATE':
+                        color = st.session_state.color_scheme['LATE']
+
+                    return [f'background-color: {color}; color: white' if color else '' for _ in row]
+
+                styled_df = display_df.style.apply(style_row, axis=1)
+
+                # Display the table with custom formatting
+                st.dataframe(
+                    styled_df,
+                    hide_index=True,
+                    height=550,
+                    use_container_width=True
+                )
+
     except Exception as e:
         logger.error(f"Error displaying map: {str(e)}")
         st.error(f"Error displaying map: {str(e)}")
