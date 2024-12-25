@@ -203,7 +203,7 @@ def display_train_map(df):
 
             # Initialize table data
             clicked_location = None
-            display_df = pd.DataFrame(columns=['Train Name', 'Status', 'Running Status', 'Time Difference'])
+            display_df = pd.DataFrame(columns=['Train Name', 'Status', 'Running Status', 'WTT TIME', 'JUST TIME', 'Time Difference'])
             st.markdown("*Click on a station on the map below to view trains*")
 
             # Display map
@@ -226,12 +226,12 @@ def display_train_map(df):
             # Update table based on clicked location
             if clicked_location:
                 display_df = df[df['Location'] == clicked_location][
-                    ['Train Name', 'Status', 'Running Status', 'Time Difference']
+                    ['Train Name', 'Status', 'Running Status', 'WTT TIME', 'JUST TIME', 'Time Difference']
                 ].copy()
                 st.markdown(f"**Selected Station: {clicked_location}**")
 
             # Style and display the table
-            display_df.columns = ['Train', 'Status', 'Running', 'Delay']
+            display_df.columns = ['Train', 'Status', 'Running', 'Scheduled', 'Actual', 'Delay']
 
             def style_row(row):
                 color = None
@@ -250,12 +250,44 @@ def display_train_map(df):
 
             styled_df = display_df.style.apply(style_row, axis=1)
 
-            # Display the table
+            # Display the table with more compact formatting
             st.dataframe(
                 styled_df,
                 hide_index=True,
-                height=200,  # Reduced height since it's above the map
-                use_container_width=True
+                height=150,  # Reduced height for more compact look
+                use_container_width=True,
+                column_config={
+                    "Train": st.column_config.TextColumn(
+                        "Train",
+                        help="Train number and name",
+                        width="small"
+                    ),
+                    "Status": st.column_config.TextColumn(
+                        "Status",
+                        help="Train status (TER/HO)",
+                        width="small"
+                    ),
+                    "Running": st.column_config.TextColumn(
+                        "Running",
+                        help="Running status",
+                        width="small"
+                    ),
+                    "Scheduled": st.column_config.TextColumn(
+                        "Sched",
+                        help="Scheduled time (WTT)",
+                        width="small"
+                    ),
+                    "Actual": st.column_config.TextColumn(
+                        "Actual",
+                        help="Actual time",
+                        width="small"
+                    ),
+                    "Delay": st.column_config.TextColumn(
+                        "Delay",
+                        help="Time difference",
+                        width="small"
+                    )
+                }
             )
 
             # Add map legend below the map
