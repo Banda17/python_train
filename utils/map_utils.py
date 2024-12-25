@@ -266,15 +266,15 @@ def display_train_map(df: pd.DataFrame):
 
         def style_row(row):
             color = None
-            delay_color = 'cc3232' # Dark red for delays
+            delay_color = '#cc3232' # Dark red for delays
             if row['Status'] == 'TER':
-                color = '90EE90' #Light Green
+                color = '#90EE90' #Light Green
             elif row['Status'] == 'HO':
-                color = 'FFB6B6' #Light Red
+                color = '#FFB6B6' #Light Red
             elif row['Running'] == 'EARLY':
-                color = '90EE90' #Light Green
+                color = '#90EE90' #Light Green
             elif row['Running'] == 'ON TIME':
-                color = 'ADD8E6' #Light Blue
+                color = '#ADD8E6' #Light Blue
             elif row['Running'] == 'LATE':
                 color = delay_color #Dark Red
             return [f'background-color: {color}; color: white' if color else '' for _ in row]
