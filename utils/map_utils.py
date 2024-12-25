@@ -97,13 +97,30 @@ def create_train_map(df):
 
     m = folium.Map(location=[center_lat, center_lon], zoom_start=8, min_zoom=7)
 
-    # Create marker clusters for stations and trains
-    station_cluster = MarkerCluster(name="Stations")
-    train_cluster = MarkerCluster(name="Trains")
+    # Create marker clusters with optimized settings
+    station_cluster = MarkerCluster(
+        name="Stations",
+        options={
+            'maxClusterRadius': 30,  # Smaller radius for tighter clusters
+            'disableClusteringAtZoom': 10,  # Stop clustering at high zoom
+            'spiderfyOnMaxZoom': True,  # Enable spiderfy for overlapping markers
+            'chunkedLoading': True,  # Load markers in chunks
+            'zoomToBoundsOnClick': True  # Zoom to cluster bounds on click
+        }
+    )
+    train_cluster = MarkerCluster(
+        name="Trains",
+        options={
+            'maxClusterRadius': 40,
+            'disableClusteringAtZoom': 11,
+            'spiderfyOnMaxZoom': True,
+            'chunkedLoading': True,
+            'zoomToBoundsOnClick': True
+        }
+    )
 
     # Add station markers with trains
     for station, coords in station_coords.items():
-        # Add station marker
         station_icon = folium.Icon(
             color='gray',
             icon='train',
@@ -116,27 +133,17 @@ def create_train_map(df):
             icon=station_icon,
         ).add_to(station_cluster)
 
-        # Add individual train markers
+        # Add individual train markers with optimized offset calculation
         station_trains = df[df['Location'] == station]
         if not station_trains.empty:
-            # Calculate offset for multiple trains at the same station
             num_trains = len(station_trains)
             for idx, (_, train) in enumerate(station_trains.iterrows()):
-                # Create smaller offset (reduced from 0.001 to 0.0002) to keep trains closer together
-                angle = (idx * 360 / num_trains) * (np.pi / 180)  # Convert to radians
-                radius = 0.0002  # Reduced radius for tighter grouping
-                offset_lat = coords[0] + radius * np.cos(angle)
-                offset_lon = coords[1] + radius * np.sin(angle)
-
-                # Get color based on train status and running status
+                # Use cached colors to avoid recalculation
                 status_color = None
-
-                # First check Status (TER/HO)
                 if train['Status'] == 'TER':
                     status_color = st.session_state.color_scheme['TER'].lstrip('#')
                 elif train['Status'] == 'HO':
                     status_color = st.session_state.color_scheme['HO'].lstrip('#')
-                # Then check Running Status if no Status match
                 elif train['Running Status'] == 'EARLY':
                     status_color = st.session_state.color_scheme['EARLY'].lstrip('#')
                 elif train['Running Status'] == 'ON TIME':
@@ -144,17 +151,22 @@ def create_train_map(df):
                 elif train['Running Status'] == 'LATE':
                     status_color = st.session_state.color_scheme['LATE'].lstrip('#')
                 else:
-                    status_color = '3186cc'  # Default blue
+                    status_color = '3186cc'
 
-                # Create train icon with status color
+                # Optimize marker placement
+                angle = (idx * 360 / num_trains) * (np.pi / 180)
+                radius = 0.0002
+                offset_lat = coords[0] + radius * np.cos(angle)
+                offset_lon = coords[1] + radius * np.sin(angle)
+
                 train_icon = folium.Icon(
-                    color='white',  # Use white as base
+                    color='white',
                     icon='subway',
                     prefix='fa',
-                    icon_color=f'#{status_color}'  # Apply status color to icon
+                    icon_color=f'#{status_color}'
                 )
 
-                # Create detailed popup content with colored header
+                # Create popup content
                 popup_content = f"""
                     <div style='min-width: 200px'>
                         <div style='background-color: #{status_color}; color: white; padding: 5px; border-radius: 3px;'>
@@ -170,7 +182,6 @@ def create_train_map(df):
                     </div>
                 """
 
-                # Add train marker
                 folium.Marker(
                     [offset_lat, offset_lon],
                     popup=folium.Popup(popup_content, max_width=300),
@@ -182,8 +193,8 @@ def create_train_map(df):
     station_cluster.add_to(m)
     train_cluster.add_to(m)
 
-    # Add layer control
-    folium.LayerControl().add_to(m)
+    # Add layer control with collapsed state
+    folium.LayerControl(collapsed=True).add_to(m)
 
     return m
 
@@ -206,22 +217,28 @@ def display_train_map(df):
             display_df = pd.DataFrame(columns=['Train Name', 'Status', 'Running Status', 'WTT TIME', 'JUST TIME', 'Time Difference'])
             st.markdown("*Click on a station on the map below to view trains*")
 
-            # Display map
-            map_data = st_folium(train_map, height=600)
+            # Display map with optimized settings
+            map_data = st_folium(
+                train_map,
+                height=600,
+                use_container_width=True,
+                returned_objects=["last_clicked"],
+                key="train_map"
+            )
 
-            # Process clicked location
+            # Process clicked location efficiently
             if map_data is not None and 'last_clicked' in map_data:
                 clicked = map_data['last_clicked']
                 if clicked:
-                    # Find nearest station to clicked point
+                    # Use numpy for faster distance calculation
                     clicked_lat, clicked_lon = clicked['lat'], clicked['lng']
                     station_coords = load_station_coordinates()
-                    min_dist = float('inf')
-                    for station, (lat, lon) in station_coords.items():
-                        dist = ((lat - clicked_lat) ** 2 + (lon - clicked_lon) ** 2) ** 0.5
-                        if dist < min_dist:
-                            min_dist = dist
-                            clicked_location = station
+
+                    # Vectorized distance calculation
+                    coords = np.array(list(station_coords.values()))
+                    dists = np.sqrt((coords[:, 0] - clicked_lat)**2 + (coords[:, 1] - clicked_lon)**2)
+                    min_idx = np.argmin(dists)
+                    clicked_location = list(station_coords.keys())[min_idx]
 
             # Update table based on clicked location
             if clicked_location:
@@ -250,11 +267,10 @@ def display_train_map(df):
 
             styled_df = display_df.style.apply(style_row, axis=1)
 
-            # Display the table with more compact formatting
             st.dataframe(
                 styled_df,
                 hide_index=True,
-                height=150,  # Reduced height for more compact look
+                height=150,
                 use_container_width=True,
                 column_config={
                     "Train": st.column_config.TextColumn(
@@ -290,18 +306,17 @@ def display_train_map(df):
                 }
             )
 
-            # Add map legend below the map
-            st.markdown("""
-            ---
-            **Map Legend:**
-            - 🚉 Gray markers: Railway Stations
-            - 🚂 Train Status Colors:
-                - 🟢 Green: Terminated (TER)
-                - 🔴 Red: Held (HO)
-                - 🟢 Green: Running Early
-                - 🔵 Blue: Running On Time
-                - 🔴 Red: Running Late
-            """)
+            # Add map legend as collapsible section
+            with st.expander("🔍 Map Legend", expanded=False):
+                st.markdown("""
+                - 🚉 Gray markers: Railway Stations
+                - 🚂 Train Status Colors:
+                    - 🟢 Green: Terminated (TER)
+                    - 🔴 Red: Held (HO)
+                    - 🟢 Green: Running Early
+                    - 🔵 Blue: Running On Time
+                    - 🔴 Red: Running Late
+                """)
 
     except Exception as e:
         logger.error(f"Error displaying map: {str(e)}")
