@@ -125,30 +125,45 @@ def create_train_map(df):
                 offset_lat = coords[0] + (idx - num_trains/2) * 0.001
                 offset_lon = coords[1] + (idx - num_trains/2) * 0.001
 
-                # Determine train icon color based on status
-                if train['Status'] == 'TER':
-                    color = 'green'
-                elif train['Status'] == 'HO':
-                    color = 'red'
-                else:
-                    color = 'blue'
+                # Get color based on train status and running status
+                status_color = None
 
-                # Create train icon
+                # First check Status (TER/HO)
+                if train['Status'] == 'TER':
+                    status_color = st.session_state.color_scheme['TER'].lstrip('#')
+                elif train['Status'] == 'HO':
+                    status_color = st.session_state.color_scheme['HO'].lstrip('#')
+                # Then check Running Status if no Status match
+                elif train['Running Status'] == 'EARLY':
+                    status_color = st.session_state.color_scheme['EARLY'].lstrip('#')
+                elif train['Running Status'] == 'ON TIME':
+                    status_color = st.session_state.color_scheme['ON_TIME'].lstrip('#')
+                elif train['Running Status'] == 'LATE':
+                    status_color = st.session_state.color_scheme['LATE'].lstrip('#')
+                else:
+                    status_color = '3186cc'  # Default blue
+
+                # Create train icon with status color
                 train_icon = folium.Icon(
-                    color=color,
+                    color='white',  # Use white as base
                     icon='subway',
-                    prefix='fa'
+                    prefix='fa',
+                    icon_color=f'#{status_color}'  # Apply status color to icon
                 )
 
-                # Create detailed popup content
+                # Create detailed popup content with colored header
                 popup_content = f"""
                     <div style='min-width: 200px'>
-                        <h4>{train['Train Name']}</h4>
-                        <b>Status:</b> {train['Status']}<br>
-                        <b>Running Status:</b> {train['Running Status']}<br>
-                        <b>Current Time:</b> {train['JUST TIME']}<br>
-                        <b>Scheduled Time:</b> {train['WTT TIME']}<br>
-                        <b>Delay:</b> {train['Time Difference']} minutes
+                        <div style='background-color: #{status_color}; color: white; padding: 5px; border-radius: 3px;'>
+                            <h4 style='margin: 0;'>{train['Train Name']}</h4>
+                        </div>
+                        <div style='padding: 5px;'>
+                            <b>Status:</b> {train['Status']}<br>
+                            <b>Running Status:</b> {train['Running Status']}<br>
+                            <b>Current Time:</b> {train['JUST TIME']}<br>
+                            <b>Scheduled Time:</b> {train['WTT TIME']}<br>
+                            <b>Delay:</b> {train['Time Difference']} minutes
+                        </div>
                     </div>
                 """
 
@@ -157,7 +172,7 @@ def create_train_map(df):
                     [offset_lat, offset_lon],
                     popup=folium.Popup(popup_content, max_width=300),
                     icon=train_icon,
-                    tooltip=f"Train: {train['Train Name']}"
+                    tooltip=f"Train: {train['Train Name']} ({train['Status']} - {train['Running Status']})"
                 ).add_to(train_cluster)
 
     # Add clusters to map
@@ -189,18 +204,22 @@ def display_train_map(df):
 
         train_map = create_train_map(df)
         if train_map:
-            st.subheader("Train Location Map")
+            st.subheader("🗺️ Train Location Map")
             # Add map description with updated legend
             st.markdown("""
-            🗺️ **Map Legend:**
+            **Map Legend:**
             - 🚉 Gray markers: Railway Stations
-            - 🚂 Colored markers: Individual Trains
-                - 🟢 Green: Terminated trains (TER)
-                - 🔴 Red: Held trains (HO)
-                - 🔵 Blue: Other status
+            - 🚂 Train Status Colors:
+                - 🟢 Green: Terminated (TER)
+                - 🔴 Red: Held (HO)
+                - 🟢 Green: Running Early
+                - 🔵 Blue: Running On Time
+                - 🔴 Red: Running Late
 
-            Note: Trains at the same station are slightly offset for better visibility.
-            Use the layer control ⚙️ to show/hide stations and trains.
+            **Tips:**
+            - Click on markers to see detailed information
+            - Trains at the same station are slightly offset for better visibility
+            - Use the layer control ⚙️ to show/hide stations and trains
             """)
             st_folium(train_map, height=600)
     except Exception as e:
