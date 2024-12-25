@@ -198,80 +198,78 @@ def display_train_map(df):
         if train_map:
             st.subheader("🗺️ Train Location Map")
 
-            # Create two columns - map and table
-            map_col, table_col = st.columns([2, 1])
+            # Create a container for the table first
+            st.markdown("### 🚂 Trains at Station")
 
-            with map_col:
-                # Add map description
-                st.markdown("""
-                **Map Legend:**
-                - 🚉 Gray markers: Railway Stations
-                - 🚂 Train Status Colors:
-                    - 🟢 Green: Terminated (TER)
-                    - 🔴 Red: Held (HO)
-                    - 🟢 Green: Running Early
-                    - 🔵 Blue: Running On Time
-                    - 🔴 Red: Running Late
-                """)
-                # Display map and get clicked location
-                map_data = st_folium(train_map, height=600)
+            # Initialize table data
+            clicked_location = None
+            display_df = pd.DataFrame(columns=['Train Name', 'Status', 'Running Status', 'Time Difference'])
+            st.markdown("*Click on a station on the map below to view trains*")
 
-            with table_col:
-                st.markdown("### 🚂 Trains at Station")
+            # Display map
+            map_data = st_folium(train_map, height=600)
 
-                # Get clicked location from the map
-                clicked_location = None
-                if map_data is not None and 'last_clicked' in map_data:
-                    clicked = map_data['last_clicked']
-                    if clicked:
-                        # Find nearest station to clicked point
-                        clicked_lat, clicked_lon = clicked['lat'], clicked['lng']
-                        station_coords = load_station_coordinates()
-                        min_dist = float('inf')
-                        for station, (lat, lon) in station_coords.items():
-                            dist = ((lat - clicked_lat) ** 2 + (lon - clicked_lon) ** 2) ** 0.5
-                            if dist < min_dist:
-                                min_dist = dist
-                                clicked_location = station
+            # Process clicked location
+            if map_data is not None and 'last_clicked' in map_data:
+                clicked = map_data['last_clicked']
+                if clicked:
+                    # Find nearest station to clicked point
+                    clicked_lat, clicked_lon = clicked['lat'], clicked['lng']
+                    station_coords = load_station_coordinates()
+                    min_dist = float('inf')
+                    for station, (lat, lon) in station_coords.items():
+                        dist = ((lat - clicked_lat) ** 2 + (lon - clicked_lon) ** 2) ** 0.5
+                        if dist < min_dist:
+                            min_dist = dist
+                            clicked_location = station
 
-                # Filter trains based on clicked location
-                if clicked_location:
-                    display_df = df[df['Location'] == clicked_location][
-                        ['Train Name', 'Status', 'Running Status', 'Time Difference']
-                    ].copy()
-                    st.markdown(f"**Selected Station: {clicked_location}**")
-                else:
-                    display_df = pd.DataFrame(columns=['Train Name', 'Status', 'Running Status', 'Time Difference'])
-                    st.markdown("*Click on a station to view trains*")
+            # Update table based on clicked location
+            if clicked_location:
+                display_df = df[df['Location'] == clicked_location][
+                    ['Train Name', 'Status', 'Running Status', 'Time Difference']
+                ].copy()
+                st.markdown(f"**Selected Station: {clicked_location}**")
 
-                # Rename columns for better display
-                display_df.columns = ['Train', 'Status', 'Running', 'Delay']
+            # Style and display the table
+            display_df.columns = ['Train', 'Status', 'Running', 'Delay']
 
-                # Style the dataframe
-                def style_row(row):
-                    color = None
-                    if row['Status'] == 'TER':
-                        color = st.session_state.color_scheme['TER']
-                    elif row['Status'] == 'HO':
-                        color = st.session_state.color_scheme['HO']
-                    elif row['Running'] == 'EARLY':
-                        color = st.session_state.color_scheme['EARLY']
-                    elif row['Running'] == 'ON TIME':
-                        color = st.session_state.color_scheme['ON_TIME']
-                    elif row['Running'] == 'LATE':
-                        color = st.session_state.color_scheme['LATE']
+            def style_row(row):
+                color = None
+                if row['Status'] == 'TER':
+                    color = st.session_state.color_scheme['TER']
+                elif row['Status'] == 'HO':
+                    color = st.session_state.color_scheme['HO']
+                elif row['Running'] == 'EARLY':
+                    color = st.session_state.color_scheme['EARLY']
+                elif row['Running'] == 'ON TIME':
+                    color = st.session_state.color_scheme['ON_TIME']
+                elif row['Running'] == 'LATE':
+                    color = st.session_state.color_scheme['LATE']
 
-                    return [f'background-color: {color}; color: white' if color else '' for _ in row]
+                return [f'background-color: {color}; color: white' if color else '' for _ in row]
 
-                styled_df = display_df.style.apply(style_row, axis=1)
+            styled_df = display_df.style.apply(style_row, axis=1)
 
-                # Display the table with custom formatting
-                st.dataframe(
-                    styled_df,
-                    hide_index=True,
-                    height=550,
-                    use_container_width=True
-                )
+            # Display the table
+            st.dataframe(
+                styled_df,
+                hide_index=True,
+                height=200,  # Reduced height since it's above the map
+                use_container_width=True
+            )
+
+            # Add map legend below the map
+            st.markdown("""
+            ---
+            **Map Legend:**
+            - 🚉 Gray markers: Railway Stations
+            - 🚂 Train Status Colors:
+                - 🟢 Green: Terminated (TER)
+                - 🔴 Red: Held (HO)
+                - 🟢 Green: Running Early
+                - 🔵 Blue: Running On Time
+                - 🔴 Red: Running Late
+            """)
 
     except Exception as e:
         logger.error(f"Error displaying map: {str(e)}")
