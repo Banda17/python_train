@@ -94,7 +94,7 @@ def create_train_map(df):
     center_lat = sum(pos[0] for pos in station_coords.values()) / len(station_coords)
     center_lon = sum(pos[1] for pos in station_coords.values()) / len(station_coords)
 
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=8)
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=8, min_zoom=7)
 
     # Create marker clusters for stations and trains
     station_cluster = MarkerCluster(name="Stations")
@@ -121,9 +121,11 @@ def create_train_map(df):
             # Calculate offset for multiple trains at the same station
             num_trains = len(station_trains)
             for idx, (_, train) in enumerate(station_trains.iterrows()):
-                # Create small offset to prevent overlap
-                offset_lat = coords[0] + (idx - num_trains/2) * 0.001
-                offset_lon = coords[1] + (idx - num_trains/2) * 0.001
+                # Create smaller offset (reduced from 0.001 to 0.0002) to keep trains closer together
+                angle = (idx * 360 / num_trains) * (np.pi / 180)  # Convert to radians
+                radius = 0.0002  # Reduced radius for tighter grouping
+                offset_lat = coords[0] + radius * np.cos(angle)
+                offset_lon = coords[1] + radius * np.sin(angle)
 
                 # Get color based on train status and running status
                 status_color = None
