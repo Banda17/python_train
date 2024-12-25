@@ -123,15 +123,16 @@ if client:
                 return 'background-color: #cc3232; color: white'  # Dark Red
             return ''
 
-        def style_delay(val):
-            if filtered_df['Running Status'].iloc[filtered_df.index.get_loc(val.name)] == 'LATE':
+        def style_delay(row):
+            if row == 'LATE':
                 return 'background-color: #cc3232; color: white'  # Dark Red
             return ''
 
+        # Apply styles using map instead of apply for better column handling
         styled_df = filtered_df.style\
-            .apply(lambda x: style_status(x['Status']), subset=['Status'])\
-            .apply(lambda x: style_running_status(x['Running Status']), subset=['Running Status'])\
-            .apply(lambda x: style_delay(x['Time Difference']), subset=['Time Difference'])
+            .map(style_status, subset=['Status'])\
+            .map(style_running_status, subset=['Running Status'])\
+            .map(lambda x: style_delay(filtered_df.loc[x.name, 'Running Status']), subset=['Time Difference'])
 
         # Data table with mobile-optimized columns
         st.subheader("🚂 Train Status")
