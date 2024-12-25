@@ -1,11 +1,12 @@
 import folium
 import streamlit as st
-from streamlit_folium import folium_static
+from streamlit_folium import st_folium
 import numpy as np
 from folium import plugins
 import json
 import os
 import logging
+from folium.plugins import MarkerCluster
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -81,17 +82,6 @@ def update_station_coordinates():
         else:
             st.error("❌ Failed to save coordinates")
 
-def generate_heatmap_data(df):
-    """Generate heatmap data from train locations."""
-    heat_data = []
-    station_coords = load_station_coordinates()
-
-    for station, count in df['Location'].value_counts().items():
-        if station in station_coords:
-            coords = station_coords[station]
-            heat_data.append([coords[0], coords[1], count])
-    return heat_data
-
 def create_train_map(df):
     """Create a folium map with train locations and heatmap."""
     station_coords = load_station_coordinates()
@@ -106,51 +96,89 @@ def create_train_map(df):
 
     m = folium.Map(location=[center_lat, center_lon], zoom_start=8)
 
-    # Add heatmap layer
-    heat_data = generate_heatmap_data(df)
-    if heat_data:
-        plugins.HeatMap(heat_data, radius=25).add_to(m)
+    # Create marker clusters for stations and trains
+    station_cluster = MarkerCluster(name="Stations")
+    train_cluster = MarkerCluster(name="Trains")
 
-    # Add station markers
+    # Add station markers with trains
     for station, coords in station_coords.items():
-        # Filter trains at this station
+        # Add station marker
+        station_icon = folium.Icon(
+            color='gray',
+            icon='train',
+            prefix='fa'
+        )
+
+        folium.Marker(
+            coords,
+            popup=f"<b>Station: {station}</b>",
+            icon=station_icon,
+        ).add_to(station_cluster)
+
+        # Add individual train markers
         station_trains = df[df['Location'] == station]
-
         if not station_trains.empty:
-            # Create popup text with train information
-            popup_text = f"<b>{station}</b><br>"
-            for _, train in station_trains.iterrows():
-                status_color = (
-                    st.session_state.color_scheme['TER'] if train['Status'] == 'TER' else
-                    st.session_state.color_scheme['HO'] if train['Status'] == 'HO' else
-                    'blue'
-                )
-                status_color = status_color.lstrip('#')
+            # Calculate offset for multiple trains at the same station
+            num_trains = len(station_trains)
+            for idx, (_, train) in enumerate(station_trains.iterrows()):
+                # Create small offset to prevent overlap
+                offset_lat = coords[0] + (idx - num_trains/2) * 0.001
+                offset_lon = coords[1] + (idx - num_trains/2) * 0.001
 
-                popup_text += f"""
-                    <div style='color:#{status_color}'>
-                        {train['Train Name']} - {train['Status']}
-                        <br>Time: {train['JUST TIME']}
-                        <br>Status: {train['Running Status']}
-                    </div><br>
+                # Determine train icon color based on status
+                if train['Status'] == 'TER':
+                    color = 'green'
+                elif train['Status'] == 'HO':
+                    color = 'red'
+                else:
+                    color = 'blue'
+
+                # Create train icon
+                train_icon = folium.Icon(
+                    color=color,
+                    icon='subway',
+                    prefix='fa'
+                )
+
+                # Create detailed popup content
+                popup_content = f"""
+                    <div style='min-width: 200px'>
+                        <h4>{train['Train Name']}</h4>
+                        <b>Status:</b> {train['Status']}<br>
+                        <b>Running Status:</b> {train['Running Status']}<br>
+                        <b>Current Time:</b> {train['JUST TIME']}<br>
+                        <b>Scheduled Time:</b> {train['WTT TIME']}<br>
+                        <b>Delay:</b> {train['Time Difference']} minutes
+                    </div>
                 """
 
-            # Add marker with custom icon based on whether there are trains
-            icon_color = 'green' if 'TER' in station_trains['Status'].values else 'red'
-            folium.Marker(
-                coords,
-                popup=folium.Popup(popup_text, max_width=300),
-                icon=folium.Icon(color=icon_color, icon='info-sign'),
-            ).add_to(m)
-        else:
-            # Add station marker with no trains
-            folium.Marker(
-                coords,
-                popup=f"<b>{station}</b><br>No trains currently at this station",
-                icon=folium.Icon(color='gray', icon='info-sign'),
-            ).add_to(m)
+                # Add train marker
+                folium.Marker(
+                    [offset_lat, offset_lon],
+                    popup=folium.Popup(popup_content, max_width=300),
+                    icon=train_icon,
+                    tooltip=f"Train: {train['Train Name']}"
+                ).add_to(train_cluster)
+
+    # Add clusters to map
+    station_cluster.add_to(m)
+    train_cluster.add_to(m)
+
+    # Add layer control
+    folium.LayerControl().add_to(m)
 
     return m
+
+def generate_heatmap_data(df):
+    """Generate heatmap data from train locations."""
+    heat_data = []
+    station_coords = load_station_coordinates()
+
+    for station, count in df['Location'].value_counts().items():
+        if station in station_coords:
+            coords = station_coords[station]
+            heat_data.append([coords[0], coords[1], count])
+    return heat_data
 
 def display_train_map(df):
     """Display the train map in Streamlit."""
@@ -162,14 +190,19 @@ def display_train_map(df):
         train_map = create_train_map(df)
         if train_map:
             st.subheader("Train Location Map")
-            # Add map description
+            # Add map description with updated legend
             st.markdown("""
             🗺️ **Map Legend:**
-            - 🔴 Red markers: Stations with trains held
-            - 🟢 Green markers: Stations with trains terminated
-            - ⚪ Gray markers: Stations with no trains
-            - 🔥 Heat intensity: Shows concentration of trains
+            - 🚉 Gray markers: Railway Stations
+            - 🚂 Colored markers: Individual Trains
+                - 🟢 Green: Terminated trains (TER)
+                - 🔴 Red: Held trains (HO)
+                - 🔵 Blue: Other status
+
+            Note: Trains at the same station are slightly offset for better visibility.
+            Use the layer control ⚙️ to show/hide stations and trains.
             """)
-            folium_static(train_map)
+            st_folium(train_map, height=600)
     except Exception as e:
+        logger.error(f"Error displaying map: {str(e)}")
         st.error(f"Error displaying map: {str(e)}")
