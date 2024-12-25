@@ -107,32 +107,34 @@ if client:
             filtered_df = filtered_df[filtered_df['Running Status'] == running_status_filter]
 
         # Create a styled dataframe using custom colors
-        def style_status(val):
-            if val == 'TER':
-                return 'background-color: #90EE90; color: white'  # Light Green
-            elif val == 'HO':
-                return 'background-color: #FFB6B6; color: white'  # Light Red
-            return ''
+        def style_row(row):
+            styles = [''] * len(row)  # Start with no colors for all cells
 
-        def style_running_status(val):
-            if val == 'EARLY':
-                return 'background-color: #90EE90; color: white'  # Light Green
-            elif val == 'ON TIME':
-                return 'background-color: #ADD8E6; color: white'  # Light Blue
-            elif val == 'LATE':
-                return 'background-color: #cc3232; color: white'  # Dark Red
-            return ''
+            # Get column indexes
+            status_idx = filtered_df.columns.get_loc('Status')
+            running_idx = filtered_df.columns.get_loc('Running Status')
+            delay_idx = filtered_df.columns.get_loc('Time Difference')
 
-        def style_delay(row):
-            if row == 'LATE':
-                return 'background-color: #cc3232; color: white'  # Dark Red
-            return ''
+            # Style Status column
+            if row['Status'] == 'TER':
+                styles[status_idx] = 'background-color: #90EE90; color: white'  # Light Green
+            elif row['Status'] == 'HO':
+                styles[status_idx] = 'background-color: #FFB6B6; color: white'  # Light Red
 
-        # Apply styles using map instead of apply for better column handling
-        styled_df = filtered_df.style\
-            .map(style_status, subset=['Status'])\
-            .map(style_running_status, subset=['Running Status'])\
-            .map(lambda x: style_delay(filtered_df.loc[x.name, 'Running Status']), subset=['Time Difference'])
+            # Style Running Status column
+            if row['Running Status'] == 'EARLY':
+                styles[running_idx] = 'background-color: #90EE90; color: white'  # Light Green
+            elif row['Running Status'] == 'ON TIME':
+                styles[running_idx] = 'background-color: #ADD8E6; color: white'  # Light Blue
+            elif row['Running Status'] == 'LATE':
+                styles[running_idx] = 'background-color: #cc3232; color: white'  # Dark Red
+                # Also style the delay column for late trains
+                styles[delay_idx] = 'background-color: #cc3232; color: white'  # Dark Red
+
+            return styles
+
+        # Apply styles using a single row-wise function
+        styled_df = filtered_df.style.apply(style_row, axis=1)
 
         # Data table with mobile-optimized columns
         st.subheader("🚂 Train Status")
