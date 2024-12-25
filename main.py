@@ -109,23 +109,29 @@ if client:
         # Create a styled dataframe using custom colors
         def style_status(val):
             if val == 'TER':
-                return f'background-color: {st.session_state.color_scheme["TER"]}; color: white'
+                return 'background-color: #90EE90; color: white'  # Light Green
             elif val == 'HO':
-                return f'background-color: {st.session_state.color_scheme["HO"]}; color: white'
+                return 'background-color: #FFB6B6; color: white'  # Light Red
             return ''
 
         def style_running_status(val):
             if val == 'EARLY':
-                return f'background-color: {st.session_state.color_scheme["EARLY"]}; color: white'
+                return 'background-color: #90EE90; color: white'  # Light Green
             elif val == 'ON TIME':
-                return f'background-color: {st.session_state.color_scheme["ON_TIME"]}; color: white'
+                return 'background-color: #ADD8E6; color: white'  # Light Blue
             elif val == 'LATE':
-                return f'background-color: {st.session_state.color_scheme["LATE"]}; color: white'
+                return 'background-color: #cc3232; color: white'  # Dark Red
+            return ''
+
+        def style_delay(val):
+            if filtered_df['Running Status'].iloc[filtered_df.index.get_loc(val.name)] == 'LATE':
+                return 'background-color: #cc3232; color: white'  # Dark Red
             return ''
 
         styled_df = filtered_df.style\
-            .map(style_status, subset=['Status'])\
-            .map(style_running_status, subset=['Running Status'])
+            .apply(lambda x: style_status(x['Status']), subset=['Status'])\
+            .apply(lambda x: style_running_status(x['Running Status']), subset=['Running Status'])\
+            .apply(lambda x: style_delay(x['Time Difference']), subset=['Time Difference'])
 
         # Data table with mobile-optimized columns
         st.subheader("🚂 Train Status")
