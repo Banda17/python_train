@@ -131,18 +131,19 @@ def create_train_map(df: pd.DataFrame):
 
                 # Use cached status colors
                 status_color = None
+                delay_color = 'cc3232'  # Dark red for delays
                 if train['Status'] == 'TER':
-                    status_color = st.session_state.color_scheme['TER'].lstrip('#')
+                    status_color = '90EE90'  # Light green
                 elif train['Status'] == 'HO':
-                    status_color = st.session_state.color_scheme['HO'].lstrip('#')
+                    status_color = 'FFB6B6'  # Light red
                 elif train['Running Status'] == 'EARLY':
-                    status_color = st.session_state.color_scheme['EARLY'].lstrip('#')
+                    status_color = '90EE90'  # Light green
                 elif train['Running Status'] == 'ON TIME':
-                    status_color = st.session_state.color_scheme['ON_TIME'].lstrip('#')
+                    status_color = 'ADD8E6'  # Light blue
                 elif train['Running Status'] == 'LATE':
-                    status_color = st.session_state.color_scheme['LATE'].lstrip('#')
+                    status_color = delay_color  # Use dark red for late status
                 else:
-                    status_color = '3186cc'
+                    status_color = 'ADD8E6'  # Light blue default
 
                 # Create marker data
                 marker_data = {
@@ -181,9 +182,14 @@ def create_train_map(df: pd.DataFrame):
             icon_color=f'#{marker["color"]}'
         )
 
+        # Add delay color to popup if train is late
+        header_color = marker["color"]
+        if marker["running_status"] == "LATE":
+            header_color = delay_color
+
         popup_content = f"""
             <div class='train-popup' style='min-width: 200px'>
-                <div style='background-color: #{marker["color"]}; color: white; padding: 5px; border-radius: 3px;'>
+                <div style='background-color: #{header_color}; color: white; padding: 5px; border-radius: 3px;'>
                     <h4 style='margin: 0;'>{marker["name"]}</h4>
                 </div>
                 <div style='padding: 5px;'>
@@ -191,7 +197,7 @@ def create_train_map(df: pd.DataFrame):
                     <b>Running Status:</b> {marker["running_status"]}<br>
                     <b>Current Time:</b> {marker["current_time"]}<br>
                     <b>Scheduled Time:</b> {marker["scheduled_time"]}<br>
-                    <b>Delay:</b> {marker["delay"]} minutes
+                    <b>Delay:</b> <span style="color: #{delay_color if marker["running_status"] == "LATE" else marker["color"]}">{marker["delay"]} minutes</span>
                 </div>
             </div>
         """
@@ -260,17 +266,17 @@ def display_train_map(df: pd.DataFrame):
 
         def style_row(row):
             color = None
+            delay_color = 'cc3232' # Dark red for delays
             if row['Status'] == 'TER':
-                color = st.session_state.color_scheme['TER']
+                color = '90EE90' #Light Green
             elif row['Status'] == 'HO':
-                color = st.session_state.color_scheme['HO']
+                color = 'FFB6B6' #Light Red
             elif row['Running'] == 'EARLY':
-                color = st.session_state.color_scheme['EARLY']
+                color = '90EE90' #Light Green
             elif row['Running'] == 'ON TIME':
-                color = st.session_state.color_scheme['ON_TIME']
+                color = 'ADD8E6' #Light Blue
             elif row['Running'] == 'LATE':
-                color = st.session_state.color_scheme['LATE']
-
+                color = delay_color #Dark Red
             return [f'background-color: {color}; color: white' if color else '' for _ in row]
 
         styled_df = display_df.style.apply(style_row, axis=1)
