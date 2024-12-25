@@ -268,6 +268,7 @@ def display_train_map(df: pd.DataFrame):
             colors = [''] * len(row)  # Start with no colors for all cells
             status_idx = 1  # Index of Status column
             running_idx = 2  # Index of Running column
+            delay_idx = 5   # Index of Delay column
 
             # Colors for status cells
             if row['Status'] == 'TER':
@@ -283,6 +284,8 @@ def display_train_map(df: pd.DataFrame):
                 colors[running_idx] = 'background-color: #ADD8E6; color: white'  # Light Blue
             elif row['Running'] == 'LATE':
                 colors[running_idx] = f'background-color: {delay_color}; color: white'  # Dark Red
+                # Also color the delay column for late trains
+                colors[delay_idx] = f'background-color: {delay_color}; color: white'
 
             return colors
 
