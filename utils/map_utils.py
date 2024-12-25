@@ -6,7 +6,7 @@ from folium import plugins
 import json
 import os
 import logging
-from folium.plugins import MarkerCluster, FastMarkerCluster
+from folium.plugins import MarkerCluster
 import pandas as pd
 from typing import Dict, List, Tuple, Any
 from functools import lru_cache
@@ -73,7 +73,7 @@ def create_train_map(df: pd.DataFrame):
         zoom_start=8,
         min_zoom=7,
         max_zoom=15,
-        prefer_canvas=True  # Use canvas renderer for better performance
+        prefer_canvas=True
     )
 
     # Add tile layer with optimized settings
@@ -97,25 +97,12 @@ def create_train_map(df: pd.DataFrame):
             'spiderfyOnMaxZoom': True,
             'chunkedLoading': True,
             'zoomToBoundsOnClick': True,
-            'showCoverageOnHover': False,  # Disable coverage circles
-            'animate': False  # Disable animations for better performance
-        }
-    )
-
-    train_cluster = FastMarkerCluster(
-        name="Trains",
-        options={
-            'maxClusterRadius': 40,
-            'disableClusteringAtZoom': 11,
-            'spiderfyOnMaxZoom': True,
-            'chunkedLoading': True,
-            'zoomToBoundsOnClick': True,
             'showCoverageOnHover': False,
             'animate': False
         }
     )
 
-    # Create station and train markers with optimized settings
+    # Add station markers
     for station, coords in station_coords.items():
         station_icon = folium.Icon(
             color='gray',
@@ -129,11 +116,19 @@ def create_train_map(df: pd.DataFrame):
             icon=station_icon,
         ).add_to(station_cluster)
 
-        # Filter and add train markers
+    # Prepare train markers data
+    train_markers = []
+    for station, coords in station_coords.items():
         station_trains = df[df['Location'] == station]
         if not station_trains.empty:
             num_trains = len(station_trains)
             for idx, (_, train) in enumerate(station_trains.iterrows()):
+                # Calculate optimized marker placement
+                angle = (idx * 360 / num_trains) * (np.pi / 180)
+                radius = 0.0002
+                offset_lat = coords[0] + radius * np.cos(angle)
+                offset_lon = coords[1] + radius * np.sin(angle)
+
                 # Use cached status colors
                 status_color = None
                 if train['Status'] == 'TER':
@@ -149,51 +144,72 @@ def create_train_map(df: pd.DataFrame):
                 else:
                     status_color = '3186cc'
 
-                # Calculate optimized marker placement
-                angle = (idx * 360 / num_trains) * (np.pi / 180)
-                radius = 0.0002
-                offset_lat = coords[0] + radius * np.cos(angle)
-                offset_lon = coords[1] + radius * np.sin(angle)
+                # Create marker data
+                marker_data = {
+                    'lat': offset_lat,
+                    'lon': offset_lon,
+                    'name': train['Train Name'],
+                    'color': status_color,
+                    'status': train['Status'],
+                    'running_status': train['Running Status'],
+                    'current_time': train['JUST TIME'],
+                    'scheduled_time': train['WTT TIME'],
+                    'delay': train['Time Difference']
+                }
+                train_markers.append(marker_data)
 
-                train_icon = folium.Icon(
-                    color='white',
-                    icon='subway',
-                    prefix='fa',
-                    icon_color=f'#{status_color}'
-                )
+    # Create train cluster with marker data
+    train_cluster = plugins.MarkerCluster(
+        name="Trains",
+        options={
+            'maxClusterRadius': 40,
+            'disableClusteringAtZoom': 11,
+            'spiderfyOnMaxZoom': True,
+            'chunkedLoading': True,
+            'zoomToBoundsOnClick': True,
+            'showCoverageOnHover': False,
+            'animate': False
+        }
+    )
 
-                # Create lazy-loaded popup content
-                popup_content = f"""
-                    <div class='train-popup' style='min-width: 200px'>
-                        <div style='background-color: #{status_color}; color: white; padding: 5px; border-radius: 3px;'>
-                            <h4 style='margin: 0;'>{train['Train Name']}</h4>
-                        </div>
-                        <div style='padding: 5px;'>
-                            <b>Status:</b> {train['Status']}<br>
-                            <b>Running Status:</b> {train['Running Status']}<br>
-                            <b>Current Time:</b> {train['JUST TIME']}<br>
-                            <b>Scheduled Time:</b> {train['WTT TIME']}<br>
-                            <b>Delay:</b> {train['Time Difference']} minutes
-                        </div>
-                    </div>
-                """
+    # Add train markers to cluster
+    for marker in train_markers:
+        train_icon = folium.Icon(
+            color='white',
+            icon='subway',
+            prefix='fa',
+            icon_color=f'#{marker["color"]}'
+        )
 
-                folium.Marker(
-                    [offset_lat, offset_lon],
-                    popup=folium.Popup(popup_content, max_width=300, lazy=True),
-                    icon=train_icon,
-                    tooltip=f"Train: {train['Train Name']}"
-                ).add_to(train_cluster)
+        popup_content = f"""
+            <div class='train-popup' style='min-width: 200px'>
+                <div style='background-color: #{marker["color"]}; color: white; padding: 5px; border-radius: 3px;'>
+                    <h4 style='margin: 0;'>{marker["name"]}</h4>
+                </div>
+                <div style='padding: 5px;'>
+                    <b>Status:</b> {marker["status"]}<br>
+                    <b>Running Status:</b> {marker["running_status"]}<br>
+                    <b>Current Time:</b> {marker["current_time"]}<br>
+                    <b>Scheduled Time:</b> {marker["scheduled_time"]}<br>
+                    <b>Delay:</b> {marker["delay"]} minutes
+                </div>
+            </div>
+        """
 
-    # Add optimized clusters to map
+        folium.Marker(
+            [marker['lat'], marker['lon']],
+            popup=folium.Popup(popup_content, max_width=300, lazy=True),
+            icon=train_icon,
+            tooltip=f"Train: {marker['name']}"
+        ).add_to(train_cluster)
+
+    # Add clusters to map
     station_cluster.add_to(m)
     train_cluster.add_to(m)
 
-    # Add collapsed layer control
+    # Add layer control and scale
     folium.LayerControl(collapsed=True, position='topright').add_to(m)
-
-    # Add scale control
-    folium.plugins.MeasureControl(position='bottomleft').add_to(m)
+    plugins.MeasureControl(position='bottomleft').add_to(m)
 
     return m
 
