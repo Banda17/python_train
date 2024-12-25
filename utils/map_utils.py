@@ -265,19 +265,26 @@ def display_train_map(df: pd.DataFrame):
         display_df.columns = ['Train', 'Status', 'Running', 'Scheduled', 'Actual', 'Delay']
 
         def style_row(row):
-            color = None
-            delay_color = '#cc3232' # Dark red for delays
+            colors = [''] * len(row)  # Start with no colors for all cells
+            status_idx = 1  # Index of Status column
+            running_idx = 2  # Index of Running column
+
+            # Colors for status cells
             if row['Status'] == 'TER':
-                color = '#90EE90' #Light Green
+                colors[status_idx] = 'background-color: #90EE90; color: white'  # Light Green
             elif row['Status'] == 'HO':
-                color = '#FFB6B6' #Light Red
-            elif row['Running'] == 'EARLY':
-                color = '#90EE90' #Light Green
+                colors[status_idx] = 'background-color: #FFB6B6; color: white'  # Light Red
+
+            # Colors for running status cells
+            delay_color = '#cc3232'  # Dark red for delays
+            if row['Running'] == 'EARLY':
+                colors[running_idx] = 'background-color: #90EE90; color: white'  # Light Green
             elif row['Running'] == 'ON TIME':
-                color = '#ADD8E6' #Light Blue
+                colors[running_idx] = 'background-color: #ADD8E6; color: white'  # Light Blue
             elif row['Running'] == 'LATE':
-                color = delay_color #Dark Red
-            return [f'background-color: {color}; color: white' if color else '' for _ in row]
+                colors[running_idx] = f'background-color: {delay_color}; color: white'  # Dark Red
+
+            return colors
 
         styled_df = display_df.style.apply(style_row, axis=1)
 
