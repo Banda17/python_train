@@ -7,6 +7,7 @@ import json
 import os
 import logging
 from folium.plugins import MarkerCluster
+import pandas as pd # Added pandas import
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -186,17 +187,6 @@ def create_train_map(df):
 
     return m
 
-def generate_heatmap_data(df):
-    """Generate heatmap data from train locations."""
-    heat_data = []
-    station_coords = load_station_coordinates()
-
-    for station, count in df['Location'].value_counts().items():
-        if station in station_coords:
-            coords = station_coords[station]
-            heat_data.append([coords[0], coords[1], count])
-    return heat_data
-
 def display_train_map(df):
     """Display the train map in Streamlit."""
     try:
@@ -212,7 +202,7 @@ def display_train_map(df):
             map_col, table_col = st.columns([2, 1])
 
             with map_col:
-                # Add map description with updated legend
+                # Add map description
                 st.markdown("""
                 **Map Legend:**
                 - 🚉 Gray markers: Railway Stations
@@ -223,16 +213,39 @@ def display_train_map(df):
                     - 🔵 Blue: Running On Time
                     - 🔴 Red: Running Late
                 """)
-                st_folium(train_map, height=600)
+                # Display map and get clicked location
+                map_data = st_folium(train_map, height=600)
 
             with table_col:
-                st.markdown("### 🚂 Trains at Stations")
+                st.markdown("### 🚂 Trains at Station")
 
-                # Create a DataFrame with relevant columns
-                display_df = df[['Train Name', 'Location', 'Status', 'Running Status', 'Time Difference']].copy()
+                # Get clicked location from the map
+                clicked_location = None
+                if map_data is not None and 'last_clicked' in map_data:
+                    clicked = map_data['last_clicked']
+                    if clicked:
+                        # Find nearest station to clicked point
+                        clicked_lat, clicked_lon = clicked['lat'], clicked['lng']
+                        station_coords = load_station_coordinates()
+                        min_dist = float('inf')
+                        for station, (lat, lon) in station_coords.items():
+                            dist = ((lat - clicked_lat) ** 2 + (lon - clicked_lon) ** 2) ** 0.5
+                            if dist < min_dist:
+                                min_dist = dist
+                                clicked_location = station
+
+                # Filter trains based on clicked location
+                if clicked_location:
+                    display_df = df[df['Location'] == clicked_location][
+                        ['Train Name', 'Status', 'Running Status', 'Time Difference']
+                    ].copy()
+                    st.markdown(f"**Selected Station: {clicked_location}**")
+                else:
+                    display_df = pd.DataFrame(columns=['Train Name', 'Status', 'Running Status', 'Time Difference'])
+                    st.markdown("*Click on a station to view trains*")
 
                 # Rename columns for better display
-                display_df.columns = ['Train', 'Station', 'Status', 'Running', 'Delay']
+                display_df.columns = ['Train', 'Status', 'Running', 'Delay']
 
                 # Style the dataframe
                 def style_row(row):
@@ -263,3 +276,14 @@ def display_train_map(df):
     except Exception as e:
         logger.error(f"Error displaying map: {str(e)}")
         st.error(f"Error displaying map: {str(e)}")
+
+def generate_heatmap_data(df):
+    """Generate heatmap data from train locations."""
+    heat_data = []
+    station_coords = load_station_coordinates()
+
+    for station, count in df['Location'].value_counts().items():
+        if station in station_coords:
+            coords = station_coords[station]
+            heat_data.append([coords[0], coords[1], count])
+    return heat_data
