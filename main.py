@@ -117,19 +117,19 @@ if client:
 
             # Style Status column
             if row['Status'] == 'TER':
-                styles[status_idx] = 'background-color: #90EE90; color: white'  # Light Green
+                styles[status_idx] = 'background-color: #E8F5E9; color: #1b1b1b'  # Lighter Green
             elif row['Status'] == 'HO':
-                styles[status_idx] = 'background-color: #FFB6B6; color: white'  # Light Red
+                styles[status_idx] = 'background-color: #FFEBEE; color: #1b1b1b'  # Lighter Red
 
             # Style Running Status column
             if row['Running Status'] == 'EARLY':
-                styles[running_idx] = 'background-color: #90EE90; color: white'  # Light Green
+                styles[running_idx] = 'background-color: #E8F5E9; color: #1b1b1b'  # Lighter Green
             elif row['Running Status'] == 'ON TIME':
-                styles[running_idx] = 'background-color: #ADD8E6; color: white'  # Light Blue
+                styles[running_idx] = 'background-color: #E3F2FD; color: #1b1b1b'  # Lighter Blue
             elif row['Running Status'] == 'LATE':
-                styles[running_idx] = 'background-color: #cc3232; color: white'  # Dark Red
+                styles[running_idx] = 'background-color: #ffcdd2; color: #1b1b1b'  # Lighter Red
                 # Also style the delay column for late trains
-                styles[delay_idx] = 'background-color: #cc3232; color: white'  # Dark Red
+                styles[delay_idx] = 'background-color: #ffcdd2; color: #1b1b1b'  # Lighter Red
 
             return styles
 
