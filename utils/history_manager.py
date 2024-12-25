@@ -21,15 +21,26 @@ class TrainHistoryManager:
             # Prepare data for insertion
             records = []
             for _, row in df.iterrows():
-                delay = row['Time Difference'].replace('+', '') if row['Time Difference'] != 'N/A' else '0'
+                # Handle empty time values
+                scheduled_time = row['WTT TIME'] if pd.notna(row['WTT TIME']) else "00:00"
+                actual_time = row['JUST TIME'] if pd.notna(row['JUST TIME']) else "00:00"
+
+                # Handle delay calculation
+                delay = 0
+                if row['Time Difference'] != 'N/A' and row['Time Difference']:
+                    try:
+                        delay = int(row['Time Difference'].replace('+', ''))
+                    except (ValueError, AttributeError):
+                        delay = 0
+
                 record = (
                     row['Train Name'],
                     row['Location'],
                     row['Status'],
                     row['Running Status'],
-                    row['WTT TIME'],
-                    row['JUST TIME'],
-                    int(delay),
+                    scheduled_time,
+                    actual_time,
+                    delay,
                     datetime.now().date()
                 )
                 records.append(record)
@@ -97,19 +108,19 @@ class TrainHistoryManager:
             with psycopg2.connect(self.db_url) as conn:
                 conditions = []
                 params = [days]
-                
+
                 if train_name:
                     conditions.append("train_name = %s")
                     params.append(train_name)
                 if location:
                     conditions.append("location = %s")
                     params.append(location)
-                
+
                 where_clause = " AND ".join(
                     ["recorded_date >= CURRENT_DATE - interval '%s days'"] + 
                     conditions
                 )
-                
+
                 query = f"""
                 SELECT 
                     recorded_date,
@@ -122,7 +133,7 @@ class TrainHistoryManager:
                 GROUP BY recorded_date
                 ORDER BY recorded_date DESC
                 """
-                
+
                 return pd.read_sql_query(query, conn, params=params)
         except Exception as e:
             logger.error(f"Error retrieving statistics: {str(e)}")

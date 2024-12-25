@@ -275,27 +275,37 @@ if client:
             else:
                 st.info("No current data available for selected train and station")
 
-        # Add historical data visualization
-        if not train_data.empty:
-            st.subheader("📈 Historical Performance")
+        # Train History Section - Make it more prominent
+        st.markdown("---")
+        st.subheader("📈 Train History Analysis")
+        st.markdown("*View detailed performance history and statistics for selected train*")
 
-            # Get historical data for the selected train
-            hist_data = st.session_state.history_manager.get_train_history(selected_train)
+        # Get historical data for the selected train
+        hist_data = st.session_state.history_manager.get_train_history(selected_train)
 
-            if not hist_data.empty:
-                # Create historical delay trend
-                fig = px.line(
-                    hist_data,
-                    x='recorded_date',
-                    y='delay_minutes',
-                    title=f'7-Day Delay History for {selected_train}',
-                    labels={
-                        'recorded_date': 'Date',
-                        'delay_minutes': 'Delay (minutes)'
-                    }
-                )
+        if not hist_data.empty:
+            # Create historical delay trend
+            fig = px.line(
+                hist_data,
+                x='recorded_date',
+                y='delay_minutes',
+                title=f'7-Day Delay History for {selected_train}',
+                labels={
+                    'recorded_date': 'Date',
+                    'delay_minutes': 'Delay (minutes)'
+                }
+            )
+            fig.update_layout(
+                height=400,
+                showlegend=True,
+                xaxis_title="Date",
+                yaxis_title="Delay (minutes)",
+                plot_bgcolor='rgba(255,255,255,0.9)',
+                paper_bgcolor='rgba(255,255,255,0.9)',
+            )
 
-                # Add current delay point
+            # Add current delay point
+            if 'current_delay' in locals():
                 fig.add_scatter(
                     x=[datetime.now().date()],
                     y=[float(current_delay.replace('+', ''))],
@@ -304,46 +314,56 @@ if client:
                     marker=dict(size=12, color='red')
                 )
 
-                st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
 
-                # Show delay statistics
-                stats = st.session_state.history_manager.get_delay_statistics(
-                    train_name=selected_train
-                )
+            # Show delay statistics
+            stats = st.session_state.history_manager.get_delay_statistics(
+                train_name=selected_train
+            )
 
-                if not stats.empty:
-                    st.subheader("📊 Delay Statistics (Last 7 Days)")
-                    col1, col2, col3 = st.columns(3)
+            if not stats.empty:
+                st.subheader("📊 Historical Statistics")
+                col1, col2, col3 = st.columns(3)
 
-                    with col1:
-                        avg_delay = stats['avg_delay'].mean()
-                        st.metric(
-                            "Average Delay",
-                            f"{avg_delay:.1f} min",
-                            delta=float(current_delay.replace('+', '')) - avg_delay,
-                            delta_color="inverse"
-                        )
-
-                    with col2:
-                        max_delay = stats['max_delay'].max()
-                        st.metric("Maximum Delay", f"{max_delay:.0f} min")
-
-                    with col3:
-                        min_delay = stats['min_delay'].min()
-                        st.metric("Minimum Delay", f"{min_delay:.0f} min")
-
-                    # Add a line chart for daily average delays
-                    fig_avg = px.line(
-                        stats,
-                        x='recorded_date',
-                        y='avg_delay',
-                        title='Daily Average Delays',
-                        labels={
-                            'recorded_date': 'Date',
-                            'avg_delay': 'Average Delay (minutes)'
-                        }
+                with col1:
+                    avg_delay = stats['avg_delay'].mean()
+                    st.metric(
+                        "Average Delay",
+                        f"{avg_delay:.1f} min",
+                        delta=float(current_delay.replace('+', '')) - avg_delay if 'current_delay' in locals() else None,
+                        delta_color="inverse"
                     )
-                    st.plotly_chart(fig_avg, use_container_width=True)
+
+                with col2:
+                    max_delay = stats['max_delay'].max()
+                    st.metric("Maximum Delay", f"{max_delay:.0f} min")
+
+                with col3:
+                    min_delay = stats['min_delay'].min()
+                    st.metric("Minimum Delay", f"{min_delay:.0f} min")
+
+                # Add a line chart for daily average delays
+                fig_avg = px.line(
+                    stats,
+                    x='recorded_date',
+                    y='avg_delay',
+                    title='Daily Average Delays',
+                    labels={
+                        'recorded_date': 'Date',
+                        'avg_delay': 'Average Delay (minutes)'
+                    }
+                )
+                fig_avg.update_layout(
+                    height=300,
+                    showlegend=False,
+                    xaxis_title="Date",
+                    yaxis_title="Average Delay (minutes)",
+                    plot_bgcolor='rgba(255,255,255,0.9)',
+                    paper_bgcolor='rgba(255,255,255,0.9)',
+                )
+                st.plotly_chart(fig_avg, use_container_width=True)
+        else:
+            st.info("No historical data available for this train yet. Data will appear as it's collected over time.")
 
 
         # ML Training controls
