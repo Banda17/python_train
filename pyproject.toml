@@ -19,4 +19,5 @@ dependencies = [
     "pywebpush>=2.0.3",
     "openai>=1.58.1",
     "py-vapid>=1.9.2",
+    "psycopg2-binary>=2.9.10",
 ]

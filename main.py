@@ -10,6 +10,8 @@ from utils import (
 from utils.map_utils import display_train_map
 import time
 import os
+from datetime import datetime
+from utils.history_manager import TrainHistoryManager
 
 # Page configuration
 st.set_page_config(
@@ -36,6 +38,10 @@ if 'color_scheme' not in st.session_state:
         'ON_TIME': '#17a2b8',
         'LATE': '#dc3545'
     }
+
+# Initialize history manager in session state
+if 'history_manager' not in st.session_state:
+    st.session_state.history_manager = TrainHistoryManager()
 
 # Load custom CSS
 with open("styles.css") as f:
@@ -73,6 +79,9 @@ if client:
     if df is not None:
         # Store current data in session state for ML training
         st.session_state.current_data = df.copy()
+        
+        # Save current data to history
+        st.session_state.history_manager.save_current_data(df)
 
         # Get delay predictions
         try:
@@ -127,9 +136,9 @@ if client:
             elif row['Running Status'] == 'ON TIME':
                 styles[running_idx] = 'background-color: #E3F2FD; color: #1b1b1b'  # Lighter Blue
             elif row['Running Status'] == 'LATE':
-                styles[running_idx] = 'background-color: #ffcdd2; color: #1b1b1b'  # Lighter Red
+                styles[running_idx] = 'background-color: #ffcdd2; color: #1b1b1b'   # Lighter Red
                 # Also style the delay column for late trains
-                styles[delay_idx] = 'background-color: #ffcdd2; color: #1b1b1b'  # Lighter Red
+                styles[delay_idx] = 'background-color: #DA0037; color: #ffffff' # Lighter Red
 
             return styles
 
@@ -266,38 +275,75 @@ if client:
             else:
                 st.info("No current data available for selected train and station")
 
-        # Display historical performance
+        # Add historical data visualization
         if not train_data.empty:
             st.subheader("📈 Historical Performance")
-            historical_data = df[df['Train Name'] == selected_train].copy()
 
-            if not historical_data.empty:
-                # Convert Time Difference to numeric, removing '+' prefix
-                historical_data['Time Difference'] = historical_data['Time Difference'].apply(
-                    lambda x: float(x.replace('+', '')) if x != 'N/A' else 0
-                )
+            # Get historical data for the selected train
+            hist_data = st.session_state.history_manager.get_train_history(selected_train)
 
-                # Melt the dataframe for plotting
-                plot_data = historical_data.melt(
-                    id_vars=['Location'],
-                    value_vars=['Time Difference', 'Predicted Delay'],
-                    var_name='Metric',
-                    value_name='Delay (minutes)'
-                )
-
+            if not hist_data.empty:
+                # Create historical delay trend
                 fig = px.line(
-                    plot_data,
-                    x='Location',
-                    y='Delay (minutes)',
-                    color='Metric',
-                    title=f"Delay Trend for {selected_train}",
+                    hist_data,
+                    x='recorded_date',
+                    y='delay_minutes',
+                    title=f'7-Day Delay History for {selected_train}',
                     labels={
-                        'Location': 'Station',
-                        'Delay (minutes)': 'Delay (minutes)',
-                        'Metric': 'Type'
+                        'recorded_date': 'Date',
+                        'delay_minutes': 'Delay (minutes)'
                     }
                 )
+
+                # Add current delay point
+                fig.add_scatter(
+                    x=[datetime.now().date()],
+                    y=[float(current_delay.replace('+', ''))],
+                    mode='markers',
+                    name='Current Delay',
+                    marker=dict(size=12, color='red')
+                )
+
                 st.plotly_chart(fig, use_container_width=True)
+
+                # Show delay statistics
+                stats = st.session_state.history_manager.get_delay_statistics(
+                    train_name=selected_train
+                )
+
+                if not stats.empty:
+                    st.subheader("📊 Delay Statistics (Last 7 Days)")
+                    col1, col2, col3 = st.columns(3)
+
+                    with col1:
+                        avg_delay = stats['avg_delay'].mean()
+                        st.metric(
+                            "Average Delay",
+                            f"{avg_delay:.1f} min",
+                            delta=float(current_delay.replace('+', '')) - avg_delay,
+                            delta_color="inverse"
+                        )
+
+                    with col2:
+                        max_delay = stats['max_delay'].max()
+                        st.metric("Maximum Delay", f"{max_delay:.0f} min")
+
+                    with col3:
+                        min_delay = stats['min_delay'].min()
+                        st.metric("Minimum Delay", f"{min_delay:.0f} min")
+
+                    # Add a line chart for daily average delays
+                    fig_avg = px.line(
+                        stats,
+                        x='recorded_date',
+                        y='avg_delay',
+                        title='Daily Average Delays',
+                        labels={
+                            'recorded_date': 'Date',
+                            'avg_delay': 'Average Delay (minutes)'
+                        }
+                    )
+                    st.plotly_chart(fig_avg, use_container_width=True)
 
 
         # ML Training controls
