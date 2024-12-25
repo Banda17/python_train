@@ -1,6 +1,6 @@
 import streamlit as st
 import folium
-from streamlit_folium import folium_static
+from streamlit_folium import st_folium
 import json
 import pandas as pd
 from typing import Dict, Tuple
@@ -84,6 +84,7 @@ def preview_coordinates(coordinates: Dict[str, Tuple[float, float]]):
         opacity=0.8
     ).add_to(m)
 
+    # Use st_folium instead of folium_static
     return m
 
 # Page header
@@ -97,36 +98,36 @@ st.markdown("""
 # Load existing coordinates
 coordinates = load_coordinates()
 
-# Main interface
-col1, col2 = st.columns([1, 2])
+# Create tabs for different sections
+tab1, tab2, tab3 = st.tabs(["📝 Edit Coordinates", "🗺️ Map Preview", "📤 Import/Export"])
 
-with col1:
-    st.subheader("📝 Coordinate Editor")
-    
+with tab1:
     # Add new station
+    st.subheader("Add New Station")
     with st.form("new_station_form"):
-        st.write("Add New Station")
         new_station = st.text_input(
             "Station Code",
             help="Enter 2-5 letter station code"
         ).upper()
-        
-        new_lat = st.number_input(
-            "Latitude",
-            value=0.0,
-            format="%.6f",
-            help="Enter latitude (-90 to 90)"
-        )
-        
-        new_lon = st.number_input(
-            "Longitude",
-            value=0.0,
-            format="%.6f",
-            help="Enter longitude (-180 to 180)"
-        )
+
+        col1, col2 = st.columns(2)
+        with col1:
+            new_lat = st.number_input(
+                "Latitude",
+                value=0.0,
+                format="%.6f",
+                help="Enter latitude (-90 to 90)"
+            )
+        with col2:
+            new_lon = st.number_input(
+                "Longitude",
+                value=0.0,
+                format="%.6f",
+                help="Enter longitude (-180 to 180)"
+            )
 
         submit = st.form_submit_button("Add Station")
-        
+
         if submit:
             if not new_station or not 2 <= len(new_station) <= 5:
                 st.error("Invalid station code. Must be 2-5 letters.")
@@ -141,34 +142,35 @@ with col1:
                     st.error(error_msg)
 
     # Edit existing stations
-    st.write("---")
-    st.subheader("✏️ Edit Stations")
-    
     if coordinates:
+        st.subheader("Edit Existing Stations")
         station_to_edit = st.selectbox(
             "Select Station",
             options=list(coordinates.keys()),
             format_func=lambda x: f"{x} ({coordinates[x][0]:.4f}, {coordinates[x][1]:.4f})"
         )
-        
+
         if station_to_edit:
             current_lat, current_lon = coordinates[station_to_edit]
-            
-            edit_lat = st.number_input(
-                f"Latitude for {station_to_edit}",
-                value=float(current_lat),
-                format="%.6f"
-            )
-            
-            edit_lon = st.number_input(
-                f"Longitude for {station_to_edit}",
-                value=float(current_lon),
-                format="%.6f"
-            )
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
+            edit_col1, edit_col2 = st.columns(2)
+
+            with edit_col1:
+                edit_lat = st.number_input(
+                    f"Latitude for {station_to_edit}",
+                    value=float(current_lat),
+                    format="%.6f"
+                )
+
+            with edit_col2:
+                edit_lon = st.number_input(
+                    f"Longitude for {station_to_edit}",
+                    value=float(current_lon),
+                    format="%.6f"
+                )
+
+            update_col1, update_col2 = st.columns(2)
+
+            with update_col1:
                 if st.button("Update", use_container_width=True):
                     is_valid, error_msg = validate_coordinates(edit_lat, edit_lon)
                     if is_valid:
@@ -178,8 +180,8 @@ with col1:
                             st.rerun()
                     else:
                         st.error(error_msg)
-            
-            with col2:
+
+            with update_col2:
                 if st.button("Delete", use_container_width=True):
                     if st.session_state.get('confirm_delete') != station_to_edit:
                         st.session_state.confirm_delete = station_to_edit
@@ -190,72 +192,68 @@ with col1:
                             st.success(f"Deleted {station_to_edit}")
                             st.session_state.confirm_delete = None
                             st.rerun()
-    else:
-        st.info("No stations configured yet")
 
-with col2:
-    st.subheader("🗺️ Preview Map")
-    
+with tab2:
+    st.subheader("Map Preview")
     preview_map = preview_coordinates(coordinates)
     if preview_map:
-        folium_static(preview_map)
-    
-    # Export/Import section
-    st.write("---")
-    st.subheader("📤 Export/Import")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("Export to CSV", use_container_width=True):
-            if coordinates:
-                df = pd.DataFrame([
-                    {
-                        'Station': station,
-                        'Latitude': lat,
-                        'Longitude': lon
-                    }
-                    for station, (lat, lon) in coordinates.items()
-                ])
-                
-                csv = df.to_csv(index=False)
-                st.download_button(
-                    "Download CSV",
-                    csv,
-                    "station_coordinates.csv",
-                    "text/csv",
-                    key='download-csv'
-                )
-            else:
-                st.warning("No coordinates to export")
-    
-    with col2:
-        uploaded_file = st.file_uploader("Import from CSV", type=['csv'])
-        if uploaded_file is not None:
-            try:
-                df = pd.read_csv(uploaded_file)
-                new_coordinates = {
-                    row['Station']: (row['Latitude'], row['Longitude'])
-                    for _, row in df.iterrows()
+        st_folium(preview_map, height=400, width=800)
+
+with tab3:
+    st.subheader("Import/Export Coordinates")
+
+    # Export section
+    if st.button("Export to CSV", use_container_width=True):
+        if coordinates:
+            df = pd.DataFrame([
+                {
+                    'Station': station,
+                    'Latitude': lat,
+                    'Longitude': lon
                 }
-                
-                # Validate all coordinates before saving
-                all_valid = True
-                for station, (lat, lon) in new_coordinates.items():
-                    is_valid, error_msg = validate_coordinates(lat, lon)
-                    if not is_valid:
-                        st.error(f"Invalid coordinates for {station}: {error_msg}")
-                        all_valid = False
-                        break
-                
-                if all_valid:
-                    coordinates.update(new_coordinates)
-                    if save_coordinates(coordinates):
-                        st.success("Coordinates imported successfully")
-                        st.rerun()
-            
-            except Exception as e:
-                st.error(f"Error importing coordinates: {str(e)}")
+                for station, (lat, lon) in coordinates.items()
+            ])
+
+            csv = df.to_csv(index=False)
+            st.download_button(
+                "Download CSV",
+                csv,
+                "station_coordinates.csv",
+                "text/csv",
+                key='download-csv'
+            )
+        else:
+            st.warning("No coordinates to export")
+
+    # Import section
+    st.write("---")
+    st.write("Import from CSV")
+    uploaded_file = st.file_uploader("Upload CSV file", type=['csv'])
+    if uploaded_file is not None:
+        try:
+            df = pd.read_csv(uploaded_file)
+            new_coordinates = {
+                row['Station']: (row['Latitude'], row['Longitude'])
+                for _, row in df.iterrows()
+            }
+
+            # Validate all coordinates before saving
+            all_valid = True
+            for station, (lat, lon) in new_coordinates.items():
+                is_valid, error_msg = validate_coordinates(lat, lon)
+                if not is_valid:
+                    st.error(f"Invalid coordinates for {station}: {error_msg}")
+                    all_valid = False
+                    break
+
+            if all_valid:
+                coordinates.update(new_coordinates)
+                if save_coordinates(coordinates):
+                    st.success("Coordinates imported successfully")
+                    st.rerun()
+
+        except Exception as e:
+            st.error(f"Error importing coordinates: {str(e)}")
 
 # Display current coordinates table
 st.write("---")
