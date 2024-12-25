@@ -205,7 +205,19 @@ if client:
         fig.update_layout(
             xaxis_tickangle=-45,
             showlegend=True,
-            height=500
+            height=500,
+            xaxis_type='category',  # Force categorical axis for train numbers
+            xaxis=dict(
+                tickmode='array',
+                ticktext=train_df['Train'].astype(str),  # Convert to string to prevent scientific notation
+                tickvals=list(range(len(train_df))),
+                title_font=dict(size=12),
+                tickfont=dict(size=10)
+            ),
+            yaxis=dict(
+                title='Average Delay (minutes)',
+                tickfont=dict(size=10)
+            )
         )
         st.plotly_chart(fig, use_container_width=True)
 
