@@ -4,6 +4,7 @@ import plotly.express as px
 from utils import initialize_google_sheets, get_sheet_data
 from utils.history_manager import TrainHistoryManager
 from datetime import datetime, timedelta
+import plotly.graph_objects as go
 
 # Page configuration
 st.set_page_config(
@@ -34,7 +35,7 @@ client = initialize_google_sheets()
 if client:
     sheet_id = "1OuiQ3FEoNAtH10NllgLusxACjn2NU0yZUcHh68hLoI4"
     current_data = get_sheet_data(client, sheet_id)
-    
+
     if current_data is not None:
         # Train selection
         st.subheader("🚂 Select Train")
@@ -43,15 +44,16 @@ if client:
             options=current_data['Train Name'].unique(),
             help="Select a train to analyze its historical performance"
         )
-        
-        # Get historical data
+
+        # Get historical data and patterns
         hist_data = st.session_state.history_manager.get_train_history(selected_train)
-        
+        patterns_data = st.session_state.history_manager.get_delay_patterns(selected_train)
+
         if not hist_data.empty:
             # Overview metrics
             st.subheader("📊 Performance Overview")
             col1, col2, col3, col4 = st.columns(4)
-            
+
             with col1:
                 avg_delay = hist_data['delay_minutes'].mean()
                 st.metric(
@@ -59,7 +61,7 @@ if client:
                     f"{avg_delay:.1f} min",
                     delta=None
                 )
-            
+
             with col2:
                 max_delay = hist_data['delay_minutes'].max()
                 st.metric(
@@ -67,7 +69,7 @@ if client:
                     f"{max_delay:.0f} min",
                     delta=None
                 )
-            
+
             with col3:
                 min_delay = hist_data['delay_minutes'].min()
                 st.metric(
@@ -75,7 +77,7 @@ if client:
                     f"{min_delay:.0f} min",
                     delta=None
                 )
-            
+
             with col4:
                 on_time_count = len(hist_data[hist_data['delay_minutes'] <= 5])
                 on_time_percentage = (on_time_count / len(hist_data)) * 100
@@ -85,10 +87,87 @@ if client:
                     delta=None
                 )
 
-            # Delay trend visualization
+            # Delay Pattern Analysis
+            st.subheader("🔍 Delay Pattern Analysis")
+            if not patterns_data.empty:
+                # Create pattern visualization
+                fig_pattern = go.Figure()
+
+                # Add scatter plot for delay patterns
+                fig_pattern.add_trace(go.Scatter(
+                    x=patterns_data['recorded_at'],
+                    y=patterns_data['delay_minutes'],
+                    mode='markers+lines',
+                    name='Delay Pattern',
+                    marker=dict(
+                        size=10,
+                        color=patterns_data['confidence'],
+                        colorscale='RdYlGn_r',
+                        showscale=True
+                    )
+                ))
+
+                fig_pattern.update_layout(
+                    title=f'Delay Patterns Over Time for {selected_train}',
+                    xaxis_title="Date",
+                    yaxis_title="Delay (minutes)",
+                    height=400,
+                    showlegend=True,
+                    plot_bgcolor='rgba(255,255,255,0.9)',
+                    paper_bgcolor='rgba(255,255,255,0.9)'
+                )
+
+                st.plotly_chart(fig_pattern, use_container_width=True)
+
+                # Pattern details table
+                st.markdown("### 📋 Identified Patterns")
+                pattern_display = patterns_data[['location', 'pattern_type', 'delay_minutes', 'confidence', 'description', 'recorded_at']]
+                pattern_display.columns = ['Station', 'Pattern Type', 'Delay (min)', 'Confidence', 'Description', 'Recorded At']
+
+                st.dataframe(
+                    pattern_display.sort_values('Recorded At', ascending=False),
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Station": st.column_config.TextColumn(
+                            "Station",
+                            help="Location where pattern was detected",
+                            width="small"
+                        ),
+                        "Pattern Type": st.column_config.TextColumn(
+                            "Type",
+                            help="Type of delay pattern",
+                            width="small"
+                        ),
+                        "Delay (min)": st.column_config.NumberColumn(
+                            "Delay",
+                            help="Delay in minutes",
+                            format="%.0f min"
+                        ),
+                        "Confidence": st.column_config.ProgressColumn(
+                            "Confidence",
+                            help="Pattern confidence score",
+                            format="%.0f%%",
+                            min_value=0,
+                            max_value=100
+                        ),
+                        "Description": st.column_config.TextColumn(
+                            "Description",
+                            help="Pattern description",
+                            width="medium"
+                        ),
+                        "Recorded At": st.column_config.DatetimeColumn(
+                            "Recorded",
+                            help="When pattern was recorded",
+                            format="D MMM YYYY, HH:mm"
+                        )
+                    }
+                )
+            else:
+                st.info("No delay patterns have been detected yet. Patterns will appear as they are identified.")
+
+            # Historical delay trend
             st.subheader("📈 Delay Trend Analysis")
-            
-            # Create delay trend chart
             fig_trend = px.line(
                 hist_data,
                 x='recorded_date',
@@ -174,16 +253,31 @@ if client:
                     )
                 }
             )
-            
-            # Download option
-            csv = hist_data.to_csv(index=False)
-            st.download_button(
-                "Download History Data",
-                csv,
-                f"{selected_train}_history.csv",
-                "text/csv",
-                key='download-csv'
-            )
+
+            # Download options
+            st.subheader("📥 Download Data")
+            col1, col2 = st.columns(2)
+
+            with col1:
+                csv = hist_data.to_csv(index=False)
+                st.download_button(
+                    "Download History Data",
+                    csv,
+                    f"{selected_train}_history.csv",
+                    "text/csv",
+                    key='download-history'
+                )
+
+            with col2:
+                if not patterns_data.empty:
+                    patterns_csv = patterns_data.to_csv(index=False)
+                    st.download_button(
+                        "Download Pattern Analysis",
+                        patterns_csv,
+                        f"{selected_train}_patterns.csv",
+                        "text/csv",
+                        key='download-patterns'
+                    )
         else:
             st.info("No historical data available for this train yet. Data will appear as it's collected over time.")
     else:
